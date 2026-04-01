@@ -107,7 +107,7 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: '伺服器錯誤，請稍後再試' });
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`\nAI 推動評分系統 v2 後端`);
   console.log(`伺服器運行於：http://localhost:${PORT}`);
   console.log(`環境：${process.env.NODE_ENV || 'development'}\n`);
