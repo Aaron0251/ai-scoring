@@ -32,6 +32,13 @@
           <el-icon><Document /></el-icon>
           <span>場景管理</span>
         </el-menu-item>
+        <el-menu-item
+          v-if="auth.isAdmin || auth.isManager || auth.isExecutive || auth.isChief"
+          index="/leader-tracking"
+        >
+          <el-icon><UserFilled /></el-icon>
+          <span>種子負責人追蹤</span>
+        </el-menu-item>
         <el-menu-item v-if="auth.isAdmin || auth.isManager || auth.isBoss" index="/import">
           <el-icon><Upload /></el-icon>
           <span>Excel 匯入</span>

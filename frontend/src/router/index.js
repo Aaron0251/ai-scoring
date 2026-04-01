@@ -58,6 +58,19 @@ const router = createRouter({
       component: () => import('../views/ImportView.vue'),
       meta: { roles: ['admin', 'manager', 'boss'] },
     },
+    // ── 種子負責人追蹤 ─────────────────────────
+    {
+      path: '/leader-tracking',
+      name: 'leader-tracking',
+      component: () => import('../views/LeaderTrackingView.vue'),
+      meta: { roles: ['admin', 'manager', 'executive', 'chief'] },
+    },
+    {
+      path: '/leader-tracking/scene/:id',
+      name: 'leader-scene-detail',
+      component: () => import('../views/LeaderSceneDetailView.vue'),
+      meta: { roles: ['admin', 'manager', 'executive', 'chief'] },
+    },
     // ── 個人 ────────────────────────────────────
     {
       path: '/profile',
