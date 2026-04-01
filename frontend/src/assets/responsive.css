@@ -1,0 +1,73 @@
+/* ── 全域 RWD ── */
+
+/* Element Plus 表格手機版橫向捲動 */
+.el-table {
+  overflow-x: auto;
+}
+
+/* 手機版 dialog 全螢幕 */
+@media (max-width: 768px) {
+  .el-dialog {
+    width: 95vw !important;
+    margin: 4px auto !important;
+  }
+
+  .el-dialog__body {
+    padding: 12px 16px !important;
+    max-height: 80vh;
+    overflow-y: auto;
+  }
+
+  /* 表格文字縮小 */
+  .el-table {
+    font-size: 12px;
+  }
+
+  .el-table .el-button {
+    padding: 4px 6px;
+    font-size: 11px;
+  }
+
+  /* 卡片間距縮小 */
+  .el-card {
+    margin-bottom: 10px !important;
+  }
+
+  /* el-col 全寬 */
+  .el-col {
+    width: 100% !important;
+    max-width: 100% !important;
+    flex: 0 0 100% !important;
+  }
+
+  /* form 標籤靠左 */
+  .el-form--label-top .el-form-item__label {
+    padding-bottom: 4px;
+  }
+
+  /* 按鈕組手機版換行 */
+  .el-button-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  /* pagination 縮小 */
+  .el-pagination {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  /* 頁面標題縮小 */
+  h2, h3 {
+    font-size: 16px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .el-dialog {
+    width: 100vw !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+  }
+}

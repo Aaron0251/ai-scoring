@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+
+# Database (SQLite 本機資料庫，不推上 GitHub)
+backend/prisma/dev.db
+backend/prisma/dev.db-journal
+backend/prisma/*.db
+
+# Uploads (使用者上傳的真實檔案)
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# Environment variables (含敏感資訊)
+.env
+.env.local
+.env.*.local
+backend/.env
+frontend/.env
+
+# Build output
+frontend/dist/
+frontend/.vite/
+
+# VS Code (可選，保留 launch.json 供團隊共用)
+# .vscode/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Docker volumes（本機產生，不需推上去）
+pgdata/

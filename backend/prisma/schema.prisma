@@ -1,0 +1,244 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─────────────────────────────────────────────
+// 組織架構
+// ─────────────────────────────────────────────
+
+model Division {
+  id          Int          @id @default(autoincrement())
+  name        String       @unique
+  departments Department[]
+  deptPersons DeptPerson[]
+  users       User[]
+  createdAt   DateTime     @default(now())
+}
+
+model Department {
+  id          Int          @id @default(autoincrement())
+  name        String
+  divisionId  Int
+  division    Division     @relation(fields: [divisionId], references: [id])
+  sections    Section[]
+  scenes      Scene[]
+  deptPersons DeptPerson[]
+  users       User[]
+  createdAt   DateTime     @default(now())
+
+  @@unique([name, divisionId])
+}
+
+model Section {
+  id           Int        @id @default(autoincrement())
+  name         String
+  departmentId Int
+  department   Department @relation(fields: [departmentId], references: [id])
+  scenes       Scene[]
+  deptPersons  DeptPerson[]
+  users        User[]
+  createdAt    DateTime   @default(now())
+
+  @@unique([name, departmentId])
+}
+
+// ─────────────────────────────────────────────
+// 主管名單（供指派直屬主管用）
+// ─────────────────────────────────────────────
+
+model DeptPerson {
+  id           Int          @id @default(autoincrement())
+  name         String
+  title        String       @default("")
+  divisionId   Int?
+  division     Division?    @relation(fields: [divisionId], references: [id])
+  departmentId Int?
+  department   Department?  @relation(fields: [departmentId], references: [id])
+  sectionId    Int?
+  section      Section?     @relation(fields: [sectionId], references: [id])
+  active       Boolean      @default(true)
+  createdAt    DateTime     @default(now())
+}
+
+// ─────────────────────────────────────────────
+// 使用者
+// ─────────────────────────────────────────────
+
+model User {
+  id                 Int          @id @default(autoincrement())
+  username           String       @unique
+  password           String
+  name               String
+  roles              String       // JSON Array 字串，如 ["admin"] 或 ["evaluator","chief"]
+  divisionId         Int?
+  division           Division?    @relation(fields: [divisionId], references: [id])
+  departmentId       Int?
+  department         Department?  @relation(fields: [departmentId], references: [id])
+  sectionId          Int?
+  section            Section?     @relation(fields: [sectionId], references: [id])
+  mustChangePassword Boolean      @default(false)
+  active             Boolean      @default(true)
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+}
+
+// ─────────────────────────────────────────────
+// 總機關首長 / 本部主管
+// ─────────────────────────────────────────────
+
+model OrgChief {
+  id        Int      @id @default(autoincrement())
+  name      String
+  role      String   // 總機關首長 | 本部主管
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+// ─────────────────────────────────────────────
+// AI 場景
+// ─────────────────────────────────────────────
+
+model Scene {
+  id                  Int        @id @default(autoincrement())
+  itemNo              String     @unique // 系統自動編號，如 AI-0001
+  departmentId        Int
+  department          Department @relation(fields: [departmentId], references: [id])
+  sectionId           Int?
+  section             Section?   @relation(fields: [sectionId], references: [id])
+
+  sceneName           String     // 最多 100 字
+  maintainOrDevelop   String?    // 維持 | 開發 | 作廢
+  itAssisted          Boolean?   // 是否由資訊協助完成
+
+  developMethod       String?
+  developToolDesc     String?
+  agentCategory       String?    // Agent類型
+
+  inputDesc           String?
+  outputDesc          String?
+  taskSteps           String?
+  rawDataExample      String?
+  finalDataExample    String?
+
+  timePerExecution    String?    // 每次執行耗費時間（文字，如「30分鐘」）
+  monthlyFrequency    String?    // 每月執行頻率（文字，如「每週3次」）
+  demandCount         Int?       // 需求人次
+
+  taskOwners          String?    // 執行人員（逗號分隔或JSON）
+  seedOwners          String?    // 種子人員
+
+  priority            String     @default("中")   // 高 | 中 | 低
+  status              String     @default("規劃中") // 規劃中 | 進行中 | 已完成 | 暫停
+  progress            Int        @default(0)       // 0-100
+
+  establishDate       DateTime?
+  targetDate          DateTime?
+  goLiveDate          DateTime?
+
+  originalHours        Float?     // 原總作業時數
+  improvedHours        Float?     // 改善後總作業時數
+  originalHeadcount    Int?       // 原總作業人數
+  improvedHeadcount    Int?       // 改善後總作業人數
+  // efficiencyGainPct 為計算欄，由 API 動態回傳
+
+  resultText          String?
+  actualResultText    String?
+  otherMetrics        String?
+
+  note                String?
+  active              Boolean    @default(true)
+  importHash          String?    @unique // Excel 匯入防重複
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+
+  // 下週計畫旗標
+
+  benefits            SceneBenefit[]
+  executionLogs       SceneExecutionLog[]
+  actualSavings       SceneActualSavings[]
+}
+
+model SceneActualSavings {
+  id      Int    @id @default(autoincrement())
+  sceneId Int
+  scene   Scene  @relation(fields: [sceneId], references: [id], onDelete: Cascade)
+  year    Int
+  jan     Float?
+  feb     Float?
+  mar     Float?
+  apr     Float?
+  may     Float?
+  jun     Float?
+  jul     Float?
+  aug     Float?
+  sep     Float?
+  oct     Float?
+  nov     Float?
+  dec     Float?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([sceneId, year])
+}
+
+// ─────────────────────────────────────────────
+// 場景每日執行紀錄
+// ─────────────────────────────────────────────
+
+model SceneExecutionLog {
+  id          Int      @id @default(autoincrement())
+  sceneId     Int
+  scene       Scene    @relation(fields: [sceneId], references: [id])
+  logDate     DateTime // 執行日期
+  executor    String?  // 執行人員姓名
+  content     String   // 執行內容說明
+  status      String   @default("完成") // 完成 | 進行中 | 暫停 | 待辦
+  note        String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model SceneBenefit {
+  id          Int      @id @default(autoincrement())
+  sceneId     Int
+  scene       Scene    @relation(fields: [sceneId], references: [id])
+  benefitType String   // 效益分類
+  description String?
+  value       Float?
+  unit        String?
+  createdAt   DateTime @default(now())
+}
+
+// ─────────────────────────────────────────────
+// 系統設定
+// ─────────────────────────────────────────────
+
+model SystemConfig {
+  id        Int      @id @default(autoincrement())
+  key       String   @unique
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
+// ─────────────────────────────────────────────
+// Excel 匯入進度追蹤
+// ─────────────────────────────────────────────
+
+model ExcelImportLog {
+  id           Int      @id @default(autoincrement())
+  filename     String
+  uploadedBy   Int      // User.id
+  totalRows    Int
+  successRows  Int
+  failedRows   Int
+  errors       String?  // JSON 字串
+  status       String   // processing | done | failed
+  createdAt    DateTime @default(now())
+}
