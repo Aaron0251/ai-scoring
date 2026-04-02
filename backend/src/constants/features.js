@@ -13,7 +13,7 @@ const FEATURES = [
   {
     category: '主要功能',
     key: 'dashboard',
-    label: '總覽儀表板',
+    label: '總覽',
     defaultRoles: ['admin', 'manager', 'executive', 'chief'],
   },
   {

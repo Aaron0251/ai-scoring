@@ -16,7 +16,7 @@ export const FEATURES = [
   {
     category: '主要功能',
     key: 'dashboard',
-    label: '總覽儀表板',
+    label: '總覽',
     path: '/dashboard',
     icon: 'DataAnalysis',
     defaultRoles: ['admin', 'manager', 'executive', 'chief'],
