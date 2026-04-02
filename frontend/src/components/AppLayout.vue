@@ -43,7 +43,7 @@
           <el-icon><Upload /></el-icon>
           <span>Excel 匯入</span>
         </el-menu-item>
-        <el-sub-menu v-if="auth.isAdmin" index="admin">
+        <el-sub-menu v-if="auth.isAdmin || auth.hasFeature('admin-users') || auth.hasFeature('admin-org') || auth.hasFeature('admin-config') || auth.hasFeature('admin-role-permissions')" index="admin">
           <template #title>
             <el-icon><Setting /></el-icon>
             <span>系統管理</span>
