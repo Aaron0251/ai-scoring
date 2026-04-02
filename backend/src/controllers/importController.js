@@ -252,9 +252,15 @@ exports.importExcel = async (req, res) => {
         const providedItemNo = get('itemNo');
 
         if (providedItemNo) {
-          // 有項目編號 → upsert
+          // 有項目編號 → 先找該編號的場景
           const existing = await prisma.scene.findUnique({ where: { itemNo: providedItemNo } });
           if (existing) {
+            // 編號存在，但場景名稱不符 → 報錯，不允許更新
+            if (existing.sceneName !== sceneName) {
+              errors.push({ row: rowNum, error: `場景編號「${providedItemNo}」對應的場景名稱為「${existing.sceneName}」，與 Excel 中的「${sceneName}」不符，無法更新` });
+              failedCount++;
+              continue;
+            }
             await prisma.scene.update({ where: { itemNo: providedItemNo }, data: sceneData });
             errors.push({ row: rowNum, error: `已覆蓋更新（${providedItemNo}）`, level: 'warn' });
             updatedCount++;
@@ -263,7 +269,14 @@ exports.importExcel = async (req, res) => {
             successCount++;
           }
         } else {
-          // 無項目編號 → 新增，自動產生
+          // 無項目編號 → 先檢查場景名稱是否已存在
+          const nameConflict = await prisma.scene.findFirst({ where: { sceneName } });
+          if (nameConflict) {
+            errors.push({ row: rowNum, error: `場景名稱「${sceneName}」已存在於資料庫（編號：${nameConflict.itemNo}），請填入場景編號以更新，或使用不同名稱新增` });
+            failedCount++;
+            continue;
+          }
+          // 無衝突 → 新增，自動產生編號
           const last = await prisma.scene.findFirst({ orderBy: { id: 'desc' } });
           const nextNum = last ? (parseInt(last.itemNo.replace('AI-', '')) + 1) : 1;
           const itemNo = `AI-${String(nextNum).padStart(4, '0')}`;
