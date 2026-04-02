@@ -135,6 +135,11 @@ async function handleLogin() {
   .login-box-inner {
     padding: 28px 20px 24px;
   }
+  /* 防止 iOS Safari 聚焦 input 時自動縮放 */
+  :deep(.el-input__inner),
+  :deep(.el-input__wrapper) {
+    font-size: 16px !important;
+  }
 }
 
 @media (max-width: 360px) {
