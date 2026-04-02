@@ -4,21 +4,43 @@ const { FEATURES } = require('../constants/features');
 // 所有角色列表
 const ALL_ROLES = ['admin', 'manager', 'chief', 'executive', 'evaluator', 'boss'];
 
+// 記錄是否已初始化（process 生命週期內只跑一次）
+let _initialized = false;
+
 /**
- * 初始化角色權限（如果資料庫為空，寫入預設值）
- * 每次後端啟動時呼叫，確保新功能有預設權限
+ * 初始化角色權限（資料庫為空時才寫入預設值）
  */
 async function initDefaultPermissions() {
-  for (const feature of FEATURES) {
-    for (const role of ALL_ROLES) {
-      const allowed = feature.defaultRoles.includes(role);
-      await prisma.rolePermission.upsert({
-        where: { role_featureKey: { role, featureKey: feature.key } },
-        create: { role, featureKey: feature.key, allowed },
-        update: {}, // 已存在的不覆蓋（保留管理員設定）
-      });
+  if (_initialized) return;
+
+  const count = await prisma.rolePermission.count();
+  if (count === 0) {
+    // 只有完全沒有資料時才批次插入預設值
+    const data = [];
+    for (const feature of FEATURES) {
+      for (const role of ALL_ROLES) {
+        data.push({ role, featureKey: feature.key, allowed: feature.defaultRoles.includes(role) });
+      }
+    }
+    await prisma.rolePermission.createMany({ data, skipDuplicates: true });
+  } else {
+    // 有資料但可能缺少新功能的項目 → 只補缺少的
+    const existing = await prisma.rolePermission.findMany({ select: { role: true, featureKey: true } });
+    const existingKeys = new Set(existing.map(r => `${r.role}:${r.featureKey}`));
+    const missing = [];
+    for (const feature of FEATURES) {
+      for (const role of ALL_ROLES) {
+        if (!existingKeys.has(`${role}:${feature.key}`)) {
+          missing.push({ role, featureKey: feature.key, allowed: feature.defaultRoles.includes(role) });
+        }
+      }
+    }
+    if (missing.length > 0) {
+      await prisma.rolePermission.createMany({ data: missing, skipDuplicates: true });
     }
   }
+
+  _initialized = true;
 }
 
 /**
