@@ -45,7 +45,6 @@ const COL_MAP = {
   '成立日':                 'establishDate',
   '預計完成日':             'targetDate',
   '上線日期時間':           'goLiveDate',
-  '原總作業時數':           'originalHours',
   '改善後預估總作業時數':   'improvedHours',
   '原總作業人數':           'originalHeadcount',
   '改善後總作業人數':       'improvedHeadcount',
@@ -347,7 +346,6 @@ exports.getTemplate = async (req, res) => {
     '2026/01/01',      // 成立日
     '2026/06/30',      // 預計完成日
     '',                // 上線日期時間
-    100,               // 原總作業時數
     40,                // 改善後預估總作業時數
     5,                 // 原總作業人數
     3,                 // 改善後總作業人數
