@@ -49,15 +49,15 @@
       <div class="section-title">成效分析：省時與效率</div>
       <el-row :gutter="16" style="margin-bottom:16px">
         <!-- 省時對比圖 -->
-        <el-col :span="16">
+        <el-col :xs="24" :sm="16">
           <el-card>
             <template #header><span>省時對比圖（原作業 vs 改善後預估）</span></template>
-            <v-chart :option="barChartOption" style="height:280px" autoresize />
+            <v-chart :option="barChartOption" class="chart-bar" autoresize />
           </el-card>
         </el-col>
         <!-- Top 5 高價值排行 -->
-        <el-col :span="8">
-          <el-card style="height:100%">
+        <el-col :xs="24" :sm="8">
+          <el-card>
             <template #header><span>🏆 高價值專案排行 Top 5</span></template>
             <div v-for="(s,i) in top5" :key="s.id" class="top5-item">
               <div class="top5-rank" :class="`rank-${i+1}`">{{ i+1 }}</div>
@@ -78,17 +78,41 @@
       <div class="section-title">各部門執行狀況</div>
       <el-row :gutter="16" style="margin-bottom:16px">
         <!-- 本部專案分佈甜甜圈 -->
-        <el-col :span="8">
+        <el-col :xs="24" :sm="8">
           <el-card>
             <template #header><span>本部專案分佈</span></template>
-            <v-chart :option="divisionPieOption" style="height:280px" autoresize />
+            <v-chart :option="divisionPieOption" class="chart-pie" autoresize />
           </el-card>
         </el-col>
-        <!-- 部門開發成熟度 Heatmap -->
-        <el-col :span="16">
+        <!-- 部門執行狀況表格 -->
+        <el-col :xs="24" :sm="16">
           <el-card>
             <template #header><span>各本部執行狀況</span></template>
-            <el-table :data="divisions" size="small" stripe style="width:100%">
+            <!-- 手機版：卡片式列表 -->
+            <div class="division-cards">
+              <div v-for="row in divisions" :key="row.name" class="division-card-item">
+                <div class="division-card-header">
+                  <span class="division-name">{{ row.name }}</span>
+                  <span class="division-total">共 {{ row.total }} 個</span>
+                </div>
+                <div class="division-tags">
+                  <el-tag type="success" size="small">完成 {{ row.completed }}</el-tag>
+                  <el-tag type="primary" size="small">進行中 {{ row.inProgress }}</el-tag>
+                  <el-tag type="info" size="small">規劃中 {{ row.planned }}</el-tag>
+                </div>
+                <div class="division-progress-row">
+                  <span class="division-progress-label">平均進度</span>
+                  <el-progress :percentage="row.avgProgress" :stroke-width="6" style="flex:1" />
+                </div>
+                <div class="division-stats">
+                  <span>預估省時 <b>{{ row.estimatedSaved.toFixed(0) }}</b>h</span>
+                  <span>實際省時 <b>{{ row.actualSavingsTotal.toFixed(0) }}</b>h</span>
+                  <span>省人數 <b>{{ row.headcountSaved }}</b></span>
+                </div>
+              </div>
+            </div>
+            <!-- 桌機版：表格 -->
+            <el-table :data="divisions" size="small" stripe style="width:100%" class="division-table">
               <el-table-column prop="name" label="本部" min-width="120" />
               <el-table-column prop="total" label="總數" width="60" align="center" />
               <el-table-column label="完成" width="60" align="center">
@@ -129,20 +153,36 @@
       <div class="section-title">進度與時程監控</div>
       <el-row :gutter="16">
         <!-- 開發方式圓餅圖 -->
-        <el-col :span="8">
+        <el-col :xs="24" :sm="8">
           <el-card>
             <template #header><span>開發方式分佈</span></template>
-            <v-chart :option="methodPieOption" style="height:280px" autoresize />
+            <v-chart :option="methodPieOption" class="chart-pie" autoresize />
           </el-card>
         </el-col>
         <!-- 異常預警清單 -->
-        <el-col :span="16">
+        <el-col :xs="24" :sm="16">
           <el-card>
             <template #header>
               <span>⚠️ 異常預警清單</span>
               <el-tag type="danger" size="small" style="margin-left:8px">{{ alertList.length }}</el-tag>
             </template>
-            <el-table :data="alertList" size="small" stripe style="width:100%" max-height="260">
+            <!-- 手機版：卡片式 -->
+            <div class="alert-cards">
+              <div v-for="row in alertList" :key="row.id" class="alert-card-item">
+                <div class="alert-card-header">
+                  <span class="alert-itemno">{{ row.itemNo }}</span>
+                  <el-tag type="danger" size="small">{{ row.reason }}</el-tag>
+                </div>
+                <div class="alert-name">{{ row.name }}</div>
+                <div class="alert-card-footer">
+                  <el-tag :type="statusType(row.status)" size="small">{{ row.status }}</el-tag>
+                  <el-tag :type="priorityType(row.priority)" size="small">{{ row.priority }}</el-tag>
+                  <el-progress :percentage="row.progress" :stroke-width="5" style="flex:1;min-width:80px" />
+                </div>
+              </div>
+            </div>
+            <!-- 桌機版：表格 -->
+            <el-table :data="alertList" size="small" stripe style="width:100%" max-height="260" class="alert-table">
               <el-table-column prop="itemNo" label="編號" width="90" />
               <el-table-column prop="name" label="場景名稱" min-width="160" show-overflow-tooltip />
               <el-table-column label="狀態" width="80">
@@ -336,4 +376,99 @@ onMounted(load)
 .top5-meta { display: flex; }
 .top5-value { font-size: 20px; font-weight: 700; color: #409eff; white-space: nowrap; }
 .top5-value small { font-size: 12px; color: #909399; }
+
+/* 圖表 */
+.chart-bar { height: 280px; }
+.chart-pie { height: 280px; }
+
+/* 各本部執行狀況：桌機顯示表格，手機顯示卡片 */
+.division-cards { display: none; }
+.division-table { display: table; }
+
+/* 異常預警：桌機顯示表格，手機顯示卡片 */
+.alert-cards { display: none; }
+.alert-table { display: table; }
+
+/* 本部卡片樣式（手機用） */
+.division-card-item {
+  border: 1px solid #e4e7ed;
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  background: #fafafa;
+}
+.division-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.division-name { font-size: 14px; font-weight: 600; color: #303133; }
+.division-total { font-size: 12px; color: #909399; }
+.division-tags { display: flex; gap: 4px; margin-bottom: 8px; flex-wrap: wrap; }
+.division-progress-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.division-progress-label { font-size: 12px; color: #606266; white-space: nowrap; }
+.division-stats {
+  display: flex;
+  gap: 12px;
+  font-size: 12px;
+  color: #606266;
+}
+.division-stats b { color: #303133; }
+
+/* 預警卡片樣式（手機用） */
+.alert-card-item {
+  border: 1px solid #fde2e2;
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  background: #fff8f8;
+}
+.alert-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+.alert-itemno { font-size: 12px; font-weight: 600; color: #909399; }
+.alert-name { font-size: 13px; font-weight: 600; color: #303133; margin-bottom: 6px; }
+.alert-card-footer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+/* ── 手機版 ── */
+@media (max-width: 768px) {
+  .dashboard { padding: 0 0 24px; }
+  .page-title { font-size: 16px; }
+  .section-title { font-size: 14px; margin: 16px 0 8px; }
+
+  /* KPI 卡片在手機保持兩欄 */
+  .kpi-value { font-size: 26px; }
+  .kpi-value small { font-size: 13px; }
+  .kpi-sub { font-size: 11px; }
+  .kpi-label { font-size: 11px; margin-bottom: 4px; }
+
+  /* 圖表高度縮小 */
+  .chart-bar { height: 220px; }
+  .chart-pie { height: 200px; }
+
+  /* 切換為卡片式 */
+  .division-cards { display: block; }
+  .division-table { display: none !important; }
+
+  .alert-cards { display: block; }
+  .alert-table { display: none !important; }
+
+  /* Top5 名稱截斷寬度加大 */
+  .top5-name { max-width: 120px; }
+  .top5-value { font-size: 16px; }
+}
 </style>
