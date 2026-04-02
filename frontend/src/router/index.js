@@ -19,7 +19,6 @@ const router = createRouter({
       path: '/dashboard',
       name: 'dashboard',
       component: () => import('../views/DashboardView.vue'),
-      meta: { featureKey: 'dashboard' },
     },
     {
       path: '/admin/users',
@@ -107,13 +106,12 @@ router.beforeEach((to, from, next) => {
     return next({ name: 'profile' })
   }
 
-  // 動態功能權限判斷（優先）
-  if (to.meta.featureKey) {
-    // admin 永遠放行，不受角色設定限制
-    if (!auth.isAdmin) {
-      const allowed = auth.hasFeature(to.meta.featureKey)
-      if (!allowed) return next({ name: 'dashboard' })
-    }
+  // admin 永遠放行所有路由
+  if (auth.isAdmin) return next()
+
+  // 非 admin 才檢查動態功能權限
+  if (to.meta.featureKey && !auth.hasFeature(to.meta.featureKey)) {
+    return next({ name: 'dashboard' })
   }
 
   next()
