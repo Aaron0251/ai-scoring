@@ -51,11 +51,11 @@
         <div class="leaders-grid">
           <div
             v-for="leader in filteredLeaders"
-            :key="leader.id"
+            :key="leader.name"
             class="leader-card"
           >
             <!-- 🟢 第一層：種子負責人概覽 -->
-            <div class="leader-header" @click="toggleLeader(leader.id)">
+            <div class="leader-header" @click="toggleLeader(leader.name)">
               <div class="leader-info">
                 <div class="leader-avatar">
                   <el-icon size="20"><User /></el-icon>
@@ -85,14 +85,14 @@
                 </el-badge>
               </div>
 
-              <el-icon class="expand-icon" :class="{ rotated: expandedLeaders.has(leader.id) }">
+              <el-icon class="expand-icon" :class="{ rotated: expandedLeaders.has(leader.name) }">
                 <ArrowDown />
               </el-icon>
             </div>
 
             <!-- 🔵 第二層：場景清單卡片 (展開後顯示) -->
             <transition name="slide-down">
-              <div v-if="expandedLeaders.has(leader.id)" class="scenes-wrapper">
+              <div v-if="expandedLeaders.has(leader.name)" class="scenes-wrapper">
                 <!-- 無場景 -->
                 <div v-if="leader.scenes.length === 0" class="no-scenes">
                   <el-icon><InfoFilled /></el-icon>

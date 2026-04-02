@@ -16,42 +16,15 @@ async function getAllowedDivisionIds(user) {
 }
 
 // GET /api/leader-tracking
-// 取得種子負責人（manager role 使用者）列表，含場景統計
-// 關聯邏輯：場景的 seedOwners 欄位包含該 manager 的姓名
+// 從場景的 seedOwners 欄位取出所有種子負責人，依姓名分組
 exports.getLeaders = async (req, res) => {
   try {
     const allowedDivIds = await getAllowedDivisionIds(req.user);
 
-    // 查詢 manager 角色使用者
-    const where = { active: true };
+    // 依權限取得場景
+    let sceneWhere = { active: true };
     if (allowedDivIds !== null) {
       if (allowedDivIds.length === 0) return res.json([]);
-      where.divisionId = { in: allowedDivIds };
-    }
-
-    const allUsers = await prisma.user.findMany({
-      where,
-      include: {
-        division: { select: { id: true, name: true } },
-        department: { select: { id: true, name: true } },
-        section: { select: { id: true, name: true } },
-      },
-      orderBy: [{ divisionId: 'asc' }, { name: 'asc' }],
-    });
-
-    // 篩選有 manager role 的使用者
-    const managers = allUsers.filter(u => {
-      try {
-        const roles = typeof u.roles === 'string' ? JSON.parse(u.roles) : u.roles;
-        return Array.isArray(roles) && roles.includes('manager');
-      } catch { return false; }
-    });
-
-    if (managers.length === 0) return res.json([]);
-
-    // 一次性取得所有場景（依權限範圍）
-    const sceneWhere = { active: true };
-    if (allowedDivIds !== null) {
       const allDepts = await prisma.department.findMany({
         where: { divisionId: { in: allowedDivIds } },
         select: { id: true },
@@ -63,49 +36,57 @@ exports.getLeaders = async (req, res) => {
       where: sceneWhere,
       select: {
         id: true, itemNo: true, sceneName: true, status: true, progress: true,
-        departmentId: true, seedOwners: true,
-        department: { select: { id: true, name: true, divisionId: true } },
+        seedOwners: true,
+        department: { select: { id: true, name: true, division: { select: { id: true, name: true } } } },
         executionLogs: { orderBy: { logDate: 'desc' }, take: 1, select: { logDate: true, content: true, status: true } },
       },
     });
 
-    // 組合回傳：場景 seedOwners 包含 manager 姓名才納入
-    const result = managers.map(m => {
-      let roles = [];
-      try { roles = typeof m.roles === 'string' ? JSON.parse(m.roles) : m.roles; } catch {}
+    // 以 seedOwners 欄位分組（逗號/頓號分隔）
+    const leaderMap = new Map(); // name -> { scenes, division? }
 
-      // seedOwners 是逗號分隔字串，拆開後比對 manager 姓名
-      const myScenes = allScenes.filter(s => {
-        if (!s.seedOwners) return false;
-        const owners = s.seedOwners.split(/[,，、]/).map(o => o.trim());
-        return owners.includes(m.name);
-      });
+    for (const scene of allScenes) {
+      if (!scene.seedOwners) continue;
+      const owners = scene.seedOwners.split(/[,，、]/).map(o => o.trim()).filter(Boolean);
+      for (const ownerName of owners) {
+        if (!leaderMap.has(ownerName)) {
+          leaderMap.set(ownerName, {
+            name: ownerName,
+            division: scene.department?.division || null,
+            department: scene.department || null,
+            scenes: [],
+          });
+        }
+        leaderMap.get(ownerName).scenes.push({
+          id: scene.id,
+          itemNo: scene.itemNo,
+          sceneName: scene.sceneName,
+          status: scene.status,
+          progress: scene.progress,
+          latestLog: scene.executionLogs[0] || null,
+        });
+      }
+    }
 
-      return {
-        id: m.id,
-        name: m.name,
-        roles,
-        division: m.division,
-        department: m.department,
-        section: m.section,
-        sceneStats: {
-          total: myScenes.length,
-          inProgress: myScenes.filter(s => s.status === '進行中').length,
-          planning:   myScenes.filter(s => s.status === '規劃中').length,
-          completed:  myScenes.filter(s => s.status === '已完成').length,
-        },
-        scenes: myScenes.map(s => ({
-          id: s.id,
-          itemNo: s.itemNo,
-          sceneName: s.sceneName,
-          status: s.status,
-          progress: s.progress,
-          latestLog: s.executionLogs[0] || null,
-        })),
-      };
-    });
+    // 轉成陣列並加上統計
+    const result = [...leaderMap.values()].map(l => ({
+      id: null, // 非系統使用者，無 id
+      name: l.name,
+      division: l.division,
+      department: l.department,
+      sceneStats: {
+        total: l.scenes.length,
+        inProgress: l.scenes.filter(s => s.status === '進行中').length,
+        planning:   l.scenes.filter(s => s.status === '規劃中').length,
+        completed:  l.scenes.filter(s => s.status === '已完成').length,
+      },
+      scenes: l.scenes,
+    }));
 
-    res.json(result.filter(r => r.scenes.length > 0));
+    // 依本部名排序
+    result.sort((a, b) => (a.division?.name || '').localeCompare(b.division?.name || '', 'zh-TW') || a.name.localeCompare(b.name, 'zh-TW'));
+
+    res.json(result);
   } catch (err) {
     res.status(500).json({ error: '取得種子負責人追蹤失敗：' + err.message });
   }
