@@ -379,7 +379,7 @@
                     </el-tooltip>
                   </label>
                   <div class="field-value" style="color:#606266">
-                    {{ autoOriginalHours != null ? autoOriginalHours + ' 小時（自動計算）' : (scene.originalHours != null ? scene.originalHours + ' 小時' : '-') }}
+                    {{ autoOriginalHours != null ? autoOriginalHours + ' 小時（自動計算）' : '-' }}
                   </div>
                 </div>
               </el-col>

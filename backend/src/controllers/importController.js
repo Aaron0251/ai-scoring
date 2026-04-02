@@ -177,10 +177,21 @@ exports.importExcel = async (req, res) => {
           if (isNaN(progress)) { rowErrors.push('欄位「進度(%)」必須是數字'); progress = 0; }
           else progress = Math.min(100, Math.max(0, progress));
         }
+        // 原總作業時數由系統自動計算，不從 Excel 直接讀取
         let originalHours = null;
-        if (get('originalHours')) {
-          originalHours = parseFloat(get('originalHours'));
-          if (isNaN(originalHours)) { rowErrors.push('欄位「原總作業時數」必須是數字'); originalHours = null; }
+        {
+          const timeStr = get('timePerExecution');
+          const freqStr = get('monthlyFrequency');
+          const demand  = demandCount;
+          if (timeStr && freqStr && demand != null) {
+            const timeVal  = parseFloat(timeStr);
+            const timeHours = timeStr.includes('分鐘') ? timeVal / 60 : timeVal;
+            const freqVal  = parseFloat(freqStr);
+            const monthlyFreq = freqStr.includes('週') ? freqVal * 4.33 : freqVal;
+            if (!isNaN(timeHours) && !isNaN(monthlyFreq)) {
+              originalHours = Math.round(timeHours * monthlyFreq * demand * 10) / 10;
+            }
+          }
         }
         let improvedHours = null;
         if (get('improvedHours')) {
