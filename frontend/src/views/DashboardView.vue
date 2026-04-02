@@ -11,7 +11,7 @@
       <!-- ① 核心 KPI 總覽 -->
       <div class="section-title">核心 KPI 總覽</div>
       <el-row :gutter="16" class="kpi-row">
-        <el-col :xs="12" :sm="6">
+        <el-col :xs="24" :sm="6">
           <el-card class="kpi-card">
             <div class="kpi-label">專案總數</div>
             <div class="kpi-value">{{ kpi.totalScenes ?? '-' }}</div>
@@ -19,7 +19,7 @@
             <el-progress :percentage="Math.min(Math.round((kpi.totalScenes/kpi.targetScenes)*100)||0,100)" :stroke-width="6" class="kpi-progress" />
           </el-card>
         </el-col>
-        <el-col :xs="12" :sm="6">
+        <el-col :xs="24" :sm="6">
           <el-card class="kpi-card orange">
             <div class="kpi-label">預估節省時數（月）</div>
             <div class="kpi-value">{{ kpi.estimatedTimeSaved?.toFixed(0) ?? '-' }} <small>h</small></div>
@@ -27,7 +27,7 @@
             <el-progress :percentage="Math.min(Math.round((kpi.estimatedTimeSaved/kpi.targetHours)*100)||0,100)" :stroke-width="6" status="warning" class="kpi-progress" />
           </el-card>
         </el-col>
-        <el-col :xs="12" :sm="6">
+        <el-col :xs="24" :sm="6">
           <el-card class="kpi-card blue">
             <div class="kpi-label">平均進度</div>
             <div class="kpi-value">{{ avgProgress }} <small>%</small></div>
@@ -35,7 +35,7 @@
             <el-progress :percentage="avgProgress" :stroke-width="6" class="kpi-progress" />
           </el-card>
         </el-col>
-        <el-col :xs="12" :sm="6">
+        <el-col :xs="24" :sm="6">
           <el-card class="kpi-card green">
             <div class="kpi-label">人力釋放率</div>
             <div class="kpi-value">{{ headcountReleaseRate }} <small>%</small></div>
@@ -447,14 +447,14 @@ onMounted(load)
 /* ── 手機版 ── */
 @media (max-width: 768px) {
   .dashboard { padding: 0 0 24px; }
-  .page-title { font-size: 16px; }
-  .section-title { font-size: 14px; margin: 16px 0 8px; }
+  .page-title { font-size: 18px; }
+  .section-title { font-size: 16px; margin: 18px 0 10px; }
 
-  /* KPI 卡片在手機保持兩欄 */
-  .kpi-value { font-size: 26px; }
-  .kpi-value small { font-size: 13px; }
-  .kpi-sub { font-size: 11px; }
-  .kpi-label { font-size: 11px; margin-bottom: 4px; }
+  /* KPI 卡片手機版字體放大 */
+  .kpi-value { font-size: 40px; }
+  .kpi-value small { font-size: 18px; }
+  .kpi-sub { font-size: 14px; }
+  .kpi-label { font-size: 15px; margin-bottom: 6px; }
 
   /* 圖表高度縮小 */
   .chart-bar { height: 220px; }

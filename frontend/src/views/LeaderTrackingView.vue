@@ -518,6 +518,25 @@ onActivated(loadLeaders)
   opacity: 1;
 }
 
+/* ── 手機版字體放大 ── */
+@media (max-width: 768px) {
+  .leader-name { font-size: 1.15rem; }
+  .leader-org { font-size: 0.9rem; }
+  .stat-label { font-size: 0.8rem; }
+  .scene-name { font-size: 1rem; }
+  .scene-item-no { font-size: 0.85rem; }
+  .scene-latest-log { font-size: 0.88rem; }
+  .scene-no-log { font-size: 0.88rem; }
+  .scene-card-footer { font-size: 0.85rem; }
+  .leader-header { padding: 14px 12px; }
+  .leader-avatar { width: 44px; height: 44px; }
+  .scene-card { padding: 14px 12px; }
+  .page-title { font-size: 1.2rem; }
+  .page-subtitle { font-size: 1rem; }
+  .filter-bar { gap: 8px; }
+  .search-input, .division-select { min-width: 0; width: 100%; }
+}
+
 /* 手機響應式 */
 @media (max-width: 600px) {
   .scene-stats {
