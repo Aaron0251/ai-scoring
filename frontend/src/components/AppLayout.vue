@@ -24,7 +24,7 @@
         :collapse-transition="false"
         @select="isMobile && (mobileOpen = false)"
       >
-        <el-menu-item index="/dashboard">
+        <el-menu-item v-if="auth.hasFeature('dashboard')" index="/dashboard">
           <el-icon><DataAnalysis /></el-icon>
           <span>總覽</span>
         </el-menu-item>

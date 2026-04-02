@@ -48,6 +48,7 @@ const errorMsg = ref('')
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useAuthStore } from '../stores/auth.js'
+import { FEATURES } from '../constants/features.js'
 
 const router = useRouter()
 const route = useRoute()
@@ -66,8 +67,13 @@ async function handleLogin() {
   localStorage.clear()
   try {
     await auth.login(form.username, form.password)
-    const redirect = route.query.redirect || '/dashboard'
-    router.push(redirect)
+    // 若有指定 redirect 就使用，否則跳到第一個有權限的功能頁
+    if (route.query.redirect) {
+      router.push(route.query.redirect)
+    } else {
+      const first = FEATURES.find(f => f.path && auth.hasFeature(f.key))
+      router.push(first ? first.path : '/no-access')
+    }
   } catch (err) {
     errorMsg.value = err.response?.data?.error || err.message || '登入失敗，請檢查帳號和密碼'
   } finally {

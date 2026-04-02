@@ -19,6 +19,7 @@ const router = createRouter({
       path: '/dashboard',
       name: 'dashboard',
       component: () => import('../views/DashboardView.vue'),
+      meta: { featureKey: 'dashboard' },
     },
     {
       path: '/admin/users',
@@ -82,6 +83,12 @@ const router = createRouter({
       name: 'profile',
       component: () => import('../views/ProfileView.vue'),
     },
+    // ── 無權限頁 ────────────────────────────────
+    {
+      path: '/no-access',
+      name: 'no-access',
+      component: () => import('../views/NoAccessView.vue'),
+    },
     // ── 404 ─────────────────────────────────────
     {
       path: '/:pathMatch(.*)*',
@@ -111,7 +118,7 @@ router.beforeEach((to, from, next) => {
 
   // 非 admin 才檢查動態功能權限
   if (to.meta.featureKey && !auth.hasFeature(to.meta.featureKey)) {
-    return next({ name: 'dashboard' })
+    return next({ name: 'no-access' })
   }
 
   next()
