@@ -55,7 +55,7 @@ const router = createRouter({
       path: '/scenes/:id',
       name: 'scene-detail',
       component: () => import('../views/SceneDetailView.vue'),
-      meta: { featureKey: 'scene-detail' },
+      meta: { featureKey: 'scenes' },
     },
     {
       path: '/import',

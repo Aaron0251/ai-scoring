@@ -117,6 +117,9 @@ import api from '../../api/index.js'
 import { ROLE_MAP } from '../../constants/roles.js'
 import { getFeaturesByCategory } from '../../constants/features.js'
 import { Lock, Check, RefreshLeft } from '@element-plus/icons-vue'
+import { useAuthStore } from '../../stores/auth.js'
+
+const auth = useAuthStore()
 
 const loading = ref(true)
 const saving  = ref(false)
@@ -190,7 +193,10 @@ async function savePermissions() {
     }
 
     await api.put('/role-permissions', updates)
-    ElMessage.success('角色功能設定已儲存，使用者重新登入後生效')
+    ElMessage.success('角色功能設定已儲存')
+
+    // 即時刷新當前登入者的 allowedFeatures
+    await auth.fetchMe().catch(() => {})
 
     // 同步 original
     originalPermissions.value = JSON.parse(JSON.stringify(localPermissions))

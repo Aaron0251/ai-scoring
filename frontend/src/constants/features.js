@@ -31,14 +31,6 @@ export const FEATURES = [
   },
   {
     category: '主要功能',
-    key: 'scene-detail',
-    label: '場景詳情',
-    path: null, // 動態路由，不顯示在側邊欄
-    icon: null,
-    defaultRoles: ['admin', 'manager', 'executive', 'chief'],
-  },
-  {
-    category: '主要功能',
     key: 'leader-tracking',
     label: '種子負責人場景追蹤',
     path: '/leader-tracking',

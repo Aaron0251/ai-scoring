@@ -24,12 +24,6 @@ const FEATURES = [
   },
   {
     category: '主要功能',
-    key: 'scene-detail',
-    label: '場景詳情',
-    defaultRoles: ['admin', 'manager', 'executive', 'chief'],
-  },
-  {
-    category: '主要功能',
     key: 'leader-tracking',
     label: '種子負責人場景追蹤',
     defaultRoles: ['admin', 'manager', 'executive', 'chief'],
