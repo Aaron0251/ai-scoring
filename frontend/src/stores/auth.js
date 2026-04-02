@@ -15,6 +15,14 @@ export const useAuthStore = defineStore('auth', () => {
   const isExecutive = computed(() => user.value?.roles?.includes('executive') ?? false)
   const hasRole = (role) => user.value?.roles?.includes(role) ?? false
 
+  // 動態功能權限
+  const allowedFeatures = computed(() => user.value?.allowedFeatures ?? [])
+  const hasFeature = (featureKey) => {
+    // admin 擁有所有功能（防止鎖死）
+    if (isAdmin.value) return true
+    return allowedFeatures.value.includes(featureKey)
+  }
+
   async function login(username, password) {
     const res = await authApi.login({ username, password })
     token.value = res.data.token
@@ -38,5 +46,5 @@ export const useAuthStore = defineStore('auth', () => {
     return res.data
   }
 
-  return { token, user, isLoggedIn, isAdmin, isManager, isBoss, isEvaluator, isChief, isExecutive, hasRole, login, logout, fetchMe }
+  return { token, user, isLoggedIn, isAdmin, isManager, isBoss, isEvaluator, isChief, isExecutive, hasRole, allowedFeatures, hasFeature, login, logout, fetchMe }
 })

@@ -1,6 +1,7 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const prisma = require('../prisma');
+const { getAllowedFeaturesForRoles } = require('./rolePermissionController');
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
@@ -25,6 +26,7 @@ exports.login = async (req, res) => {
   }
 
   const roles = parseRoles(user);
+  const allowedFeatures = await getAllowedFeaturesForRoles(roles);
   const token = jwt.sign(
     { id: user.id, username: user.username, roles, name: user.name, divisionId: user.divisionId, departmentId: user.departmentId },
     JWT_SECRET,
@@ -38,6 +40,7 @@ exports.login = async (req, res) => {
       username: user.username,
       name: user.name,
       roles,
+      allowedFeatures,
       divisionId: user.divisionId,
       departmentId: user.departmentId,
       mustChangePassword: user.mustChangePassword,
@@ -54,11 +57,13 @@ exports.me = async (req, res) => {
     return res.status(401).json({ error: '使用者不存在' });
   }
   const roles = parseRoles(user);
+  const allowedFeatures = await getAllowedFeaturesForRoles(roles);
   res.json({
     id: user.id,
     username: user.username,
     name: user.name,
     roles,
+    allowedFeatures,
     divisionId: user.divisionId,
     departmentId: user.departmentId,
     department: user.department,

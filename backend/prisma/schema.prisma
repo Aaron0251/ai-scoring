@@ -217,6 +217,21 @@ model SceneBenefit {
 }
 
 // ─────────────────────────────────────────────
+// 角色功能權限設定
+// ─────────────────────────────────────────────
+
+model RolePermission {
+  id         Int      @id @default(autoincrement())
+  role       String   // admin | manager | chief | executive | evaluator | boss
+  featureKey String   // 對應 features.js 中的 key
+  allowed    Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([role, featureKey])
+}
+
+// ─────────────────────────────────────────────
 // 系統設定
 // ─────────────────────────────────────────────
 

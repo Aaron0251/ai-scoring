@@ -19,57 +19,63 @@ const router = createRouter({
       path: '/dashboard',
       name: 'dashboard',
       component: () => import('../views/DashboardView.vue'),
-      meta: { roles: ['admin', 'manager', 'executive', 'chief', 'boss'] },
+      meta: { featureKey: 'dashboard' },
     },
     {
       path: '/admin/users',
       name: 'admin-users',
       component: () => import('../views/admin/AdminUsers.vue'),
-      meta: { roles: ['admin'] },
+      meta: { featureKey: 'admin-users' },
     },
     {
       path: '/admin/org',
       name: 'admin-org',
       component: () => import('../views/admin/AdminOrg.vue'),
-      meta: { roles: ['admin'] },
+      meta: { featureKey: 'admin-org' },
     },
     {
       path: '/admin/config',
       name: 'admin-config',
       component: () => import('../views/admin/AdminConfig.vue'),
-      meta: { roles: ['admin'] },
+      meta: { featureKey: 'admin-config' },
+    },
+    {
+      path: '/admin/role-permissions',
+      name: 'admin-role-permissions',
+      component: () => import('../views/admin/AdminRolePermissions.vue'),
+      meta: { featureKey: 'admin-role-permissions' },
     },
     // ── 場景管理 ────────────────────────────────
     {
       path: '/scenes',
       name: 'scenes',
       component: () => import('../views/SceneListView.vue'),
-      meta: { roles: ['admin', 'manager', 'boss', 'executive', 'chief', 'evaluator'] },
+      meta: { featureKey: 'scenes' },
     },
     {
       path: '/scenes/:id',
       name: 'scene-detail',
       component: () => import('../views/SceneDetailView.vue'),
-      meta: { roles: ['admin', 'manager', 'boss', 'executive', 'chief', 'evaluator'] },
+      meta: { featureKey: 'scene-detail' },
     },
     {
       path: '/import',
       name: 'import',
       component: () => import('../views/ImportView.vue'),
-      meta: { roles: ['admin', 'manager', 'boss'] },
+      meta: { featureKey: 'import' },
     },
     // ── 種子負責人追蹤 ─────────────────────────
     {
       path: '/leader-tracking',
       name: 'leader-tracking',
       component: () => import('../views/LeaderTrackingView.vue'),
-      meta: { roles: ['admin', 'manager', 'executive', 'chief'] },
+      meta: { featureKey: 'leader-tracking' },
     },
     {
       path: '/leader-tracking/scene/:id',
       name: 'leader-scene-detail',
       component: () => import('../views/LeaderSceneDetailView.vue'),
-      meta: { roles: ['admin', 'manager', 'executive', 'chief'] },
+      meta: { featureKey: 'leader-tracking' },
     },
     // ── 個人 ────────────────────────────────────
     {
@@ -101,8 +107,9 @@ router.beforeEach((to, from, next) => {
     return next({ name: 'profile' })
   }
 
-  if (to.meta.roles) {
-    const allowed = to.meta.roles.some(r => auth.hasRole(r))
+  // 動態功能權限判斷（優先）
+  if (to.meta.featureKey) {
+    const allowed = auth.hasFeature(to.meta.featureKey)
     if (!allowed) return next({ name: 'dashboard' })
   }
 

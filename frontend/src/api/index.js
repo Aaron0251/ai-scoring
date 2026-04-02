@@ -158,4 +158,9 @@ export const efficiencyReportsApi = {
   get: (params) => api.get('/efficiency-reports', { params }),
 }
 
+export const rolePermissionsApi = {
+  getAll: () => api.get('/role-permissions'),
+  updateBatch: (updates) => api.put('/role-permissions', updates),
+}
+
 export default api

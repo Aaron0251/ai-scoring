@@ -28,18 +28,18 @@
           <el-icon><DataAnalysis /></el-icon>
           <span>總覽</span>
         </el-menu-item>
-        <el-menu-item index="/scenes">
+        <el-menu-item v-if="auth.hasFeature('scenes')" index="/scenes">
           <el-icon><Document /></el-icon>
           <span>場景管理</span>
         </el-menu-item>
         <el-menu-item
-          v-if="auth.isAdmin || auth.isManager || auth.isExecutive || auth.isChief"
+          v-if="auth.hasFeature('leader-tracking')"
           index="/leader-tracking"
         >
           <el-icon><UserFilled /></el-icon>
           <span>種子負責人追蹤</span>
         </el-menu-item>
-        <el-menu-item v-if="auth.isAdmin || auth.isManager || auth.isBoss" index="/import">
+        <el-menu-item v-if="auth.hasFeature('import')" index="/import">
           <el-icon><Upload /></el-icon>
           <span>Excel 匯入</span>
         </el-menu-item>
@@ -48,9 +48,10 @@
             <el-icon><Setting /></el-icon>
             <span>系統管理</span>
           </template>
-          <el-menu-item index="/admin/users">使用者管理</el-menu-item>
-          <el-menu-item index="/admin/org">組織架構</el-menu-item>
-          <el-menu-item index="/admin/config">目標設定</el-menu-item>
+          <el-menu-item v-if="auth.hasFeature('admin-users')" index="/admin/users">使用者管理</el-menu-item>
+          <el-menu-item v-if="auth.hasFeature('admin-org')" index="/admin/org">組織架構</el-menu-item>
+          <el-menu-item v-if="auth.hasFeature('admin-config')" index="/admin/config">目標設定</el-menu-item>
+          <el-menu-item v-if="auth.hasFeature('admin-role-permissions')" index="/admin/role-permissions">角色功能設定</el-menu-item>
         </el-sub-menu>
       </el-menu>
     </el-aside>

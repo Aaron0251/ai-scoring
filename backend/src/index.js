@@ -20,6 +20,7 @@ const dashboardRoutes          = require('./routes/dashboard');
 // 评分相关路由已删除
 const efficiencyReportsRoutes  = require('./routes/efficiency-reports');
 const leaderTrackingRoutes     = require('./routes/leader-tracking');
+const rolePermissionsRoutes    = require('./routes/role-permissions');
 const actualSavingsRoutes       = require('./routes/actual-savings');
 
 const app = express();
@@ -77,6 +78,7 @@ app.use('/api/dashboard',               dashboardRoutes);
 // 评分相关路由已删除
 app.use('/api/efficiency-reports',      efficiencyReportsRoutes);
 app.use('/api/leader-tracking',         leaderTrackingRoutes);
+app.use('/api/role-permissions',        rolePermissionsRoutes);
 
 // ── Health Check ──────────────────────────────
 app.get('/api/health', (req, res) => res.json({ status: 'ok', version: '2.0.0' }));
