@@ -109,8 +109,11 @@ router.beforeEach((to, from, next) => {
 
   // 動態功能權限判斷（優先）
   if (to.meta.featureKey) {
-    const allowed = auth.hasFeature(to.meta.featureKey)
-    if (!allowed) return next({ name: 'dashboard' })
+    // admin 永遠放行，不受角色設定限制
+    if (!auth.isAdmin) {
+      const allowed = auth.hasFeature(to.meta.featureKey)
+      if (!allowed) return next({ name: 'dashboard' })
+    }
   }
 
   next()
