@@ -80,6 +80,12 @@ async function handleLogin() {
   localStorage.clear()
   try {
     await auth.login(form.username, form.password)
+    // 強制重置 iOS Safari 縮放（input 聚焦導致的 zoom in）
+    const viewport = document.querySelector('meta[name=viewport]')
+    if (viewport) {
+      viewport.content = 'width=device-width, initial-scale=1, maximum-scale=1'
+      setTimeout(() => { viewport.content = 'width=device-width, initial-scale=1' }, 300)
+    }
     if (route.query.redirect) {
       router.push(route.query.redirect)
     } else {
