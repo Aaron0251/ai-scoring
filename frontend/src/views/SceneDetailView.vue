@@ -372,9 +372,15 @@
             <el-row :gutter="24" style="margin-bottom:16px">
               <el-col :xs="24" :sm="8">
                 <div class="form-field">
-                  <label class="field-label">原總作業時數</label>
-                  <div v-if="!editing" class="field-value">{{ scene.originalHours ?? '-' }}</div>
-                  <el-input-number v-else v-model="form.originalHours" :min="0" :max="9999.9" :precision="1" style="width:100%" />
+                  <label class="field-label">
+                    原總作業時數
+                    <el-tooltip content="系統自動計算：每次執行時間 × 執行頻率 × 有需求人數" placement="top">
+                      <el-icon style="color:#909399;cursor:help;margin-left:4px"><InfoFilled /></el-icon>
+                    </el-tooltip>
+                  </label>
+                  <div class="field-value" style="color:#606266">
+                    {{ autoOriginalHours != null ? autoOriginalHours + ' 小時（自動計算）' : (scene.originalHours != null ? scene.originalHours + ' 小時' : '-') }}
+                  </div>
                 </div>
               </el-col>
               <el-col :xs="24" :sm="8">
@@ -654,7 +660,7 @@ const filteredDepts = computed(() =>
   form.divisionId ? allDepartments.value.filter(d => d.divisionId === form.divisionId) : []
 )
 const estimatedSavedHours = computed(() => {
-  const orig = editing.value ? form.originalHours : scene.value?.originalHours
+  const orig = editing.value ? autoOriginalHours.value : scene.value?.originalHours
   const imp  = editing.value ? form.improvedHours : scene.value?.improvedHours
   if (orig == null || imp == null) return null
   return Math.round((orig - imp) * 10) / 10
@@ -664,6 +670,24 @@ const estimatedSavedHeadcount = computed(() => {
   const imp  = editing.value ? form.improvedHeadcount : scene.value?.improvedHeadcount
   if (orig == null || imp == null) return null
   return orig - imp
+})
+
+// 原總作業時數自動計算：每次執行時間(小時) × 執行頻率(次/月) × 有需求人數
+const autoOriginalHours = computed(() => {
+  const timeVal  = editing.value ? form.timePerExecutionVal  : parseFloat(scene.value?.timePerExecution)
+  const timeUnit = editing.value ? form.timePerExecutionUnit : (scene.value?.timePerExecution?.includes('分鐘') ? '分鐘' : '小時')
+  const freqVal  = editing.value ? form.monthlyFrequencyVal  : parseFloat(scene.value?.monthlyFrequency)
+  const freqUnit = editing.value ? form.monthlyFrequencyUnit : (scene.value?.monthlyFrequency?.includes('週') ? '次/每週' : '次/每月')
+  const demand   = editing.value ? form.demandCount          : scene.value?.demandCount
+
+  if (timeVal == null || isNaN(timeVal) || freqVal == null || isNaN(freqVal) || demand == null) return null
+
+  // 時間轉小時
+  const timeHours = timeUnit === '分鐘' ? timeVal / 60 : timeVal
+  // 頻率轉次/月（每週 × 4.33）
+  const monthlyFreq = freqUnit === '次/每週' ? freqVal * 4.33 : freqVal
+
+  return Math.round(timeHours * monthlyFreq * demand * 10) / 10
 })
 
 onMounted(async () => {
@@ -822,6 +846,10 @@ async function handleSave() {
     // 組合數字＋單位成字串後送出
     payload.timePerExecution = timePerExecutionVal != null ? `${timePerExecutionVal} ${timePerExecutionUnit}` : null
     payload.monthlyFrequency = monthlyFrequencyVal != null ? `${monthlyFrequencyVal} ${monthlyFrequencyUnit}` : null
+    // 原總作業時數自動帶入計算值
+    if (autoOriginalHours.value != null) {
+      payload.originalHours = autoOriginalHours.value
+    }
     const res = await scenesApi.update(route.params.id, payload)
     scene.value = res.data
     editing.value = false
