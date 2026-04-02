@@ -178,14 +178,14 @@
 import { ref, computed, onMounted } from 'vue'
 import { use } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
-import { BarChart, PieChart } from 'echarts/charts'
+import { BarChart, PieChart, ScatterChart, TreemapChart } from 'echarts/charts'
 import { GridComponent, TooltipComponent, LegendComponent, TitleComponent } from 'echarts/components'
 import VChart from 'vue-echarts'
 import AppLayout from '@/components/AppLayout.vue'
 import { dashboardApi } from '@/api/index.js'
 import { Refresh } from '@element-plus/icons-vue'
 
-use([CanvasRenderer, BarChart, PieChart, GridComponent, TooltipComponent, LegendComponent, TitleComponent])
+use([CanvasRenderer, BarChart, PieChart, ScatterChart, TreemapChart, GridComponent, TooltipComponent, LegendComponent, TitleComponent])
 
 const loading = ref(false)
 const kpi = ref({})
@@ -194,6 +194,7 @@ const pieData = ref([])
 const efficiencyGains = ref([])
 const top5 = ref([])
 const alertList = ref([])
+const toolTreemap = ref([])
 
 const avgProgress = computed(() => {
   if (!divisions.value.length) return 0
@@ -246,6 +247,38 @@ const methodPieOption = computed(() => ({
   }],
 }))
 
+// 優先序散佈圖
+const priorityMap = { '高': 3, '中': 2, '低': 1 }
+const scatterOption = computed(() => ({
+  tooltip: { formatter: p => `${p.data[3]}<br>優先序: ${p.data[4]}<br>進度: ${p.data[1]}%<br>節省: ${p.data[2]}h` },
+  xAxis: { type: 'category', data: ['低', '中', '高'], name: '優先序' },
+  yAxis: { type: 'value', name: '進度(%)', max: 100 },
+  series: [{
+    type: 'scatter',
+    data: efficiencyGains.value.map(s => [
+      priorityMap[s.priority] - 1,
+      s.progress,
+      s.savedHours,
+      s.name,
+      s.priority,
+    ]),
+    symbolSize: d => Math.max(8, Math.min(d[2] / 5, 40)),
+    itemStyle: { color: '#409eff', opacity: 0.7 },
+  }],
+}))
+
+// 工具 Treemap
+const treemapOption = computed(() => ({
+  tooltip: { formatter: p => `${p.name}<br>使用場景數：${p.value}` },
+  series: [{
+    type: 'treemap',
+    data: toolTreemap.value.map(t => ({ name: `${t.name}\n${t.value}個`, value: t.value })),
+    leafDepth: 1,
+    label: { show: true, fontSize: 12 },
+    breadcrumb: { show: false },
+  }],
+}))
+
 function priorityType(p) {
   return p === '高' ? 'danger' : p === '中' ? 'warning' : 'info'
 }
@@ -266,6 +299,7 @@ async function load() {
     efficiencyGains.value = res.data.efficiencyGains || []
     top5.value = res.data.top5 || []
     alertList.value = res.data.alertList || []
+    toolTreemap.value = res.data.toolTreemap || []
   } catch (e) {
     console.error(e)
   } finally {
