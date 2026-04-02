@@ -55,7 +55,10 @@ const COL_MAP = {
   '備註':                   'note',
 };
 const ALL_COLS = Object.keys(COL_MAP);
-const REQUIRED_COLS = ['場景名稱'];
+const REQUIRED_COLS = ['場景名稱', '本部'];
+
+// 必須存在於標題列的所有欄位（格式驗證）
+const MANDATORY_HEADER_COLS = ALL_COLS;
 
 function parseItAssisted(val) {
   if (val === null || val === undefined || val === '') return null;
@@ -100,9 +103,13 @@ exports.importExcel = async (req, res) => {
       if (idx !== -1) colIndex[field] = idx;
     }
 
-    const missing = REQUIRED_COLS.filter(title => colIndex[COL_MAP[title]] === undefined);
-    if (missing.length > 0) {
-      return res.status(400).json({ error: '缺少必要欄位，匯入被拒絕', missingColumns: missing });
+    // 驗證所有欄位標題都必須存在
+    const missingHeaders = MANDATORY_HEADER_COLS.filter(title => colIndex[COL_MAP[title]] === undefined);
+    if (missingHeaders.length > 0) {
+      return res.status(400).json({
+        error: `Excel 格式不符，缺少以下欄位標題，請使用正確的匯入範本`,
+        missingColumns: missingHeaders,
+      });
     }
 
     const dataRows = rows.slice(1).filter(row => row.some(cell => cell !== ''));
@@ -127,8 +134,13 @@ exports.importExcel = async (req, res) => {
         const rowErrors = [];
 
         const sceneName = get('sceneName');
-        if (!sceneName) {
-          errors.push({ row: rowNum, error: '欄位「場景名稱」為必填，但未提供值' });
+        if (!sceneName) rowErrors.push('欄位「場景名稱」為必填，但未提供值');
+
+        const divisionName = get('division');
+        if (!divisionName) rowErrors.push('欄位「本部」為必填，但未提供值');
+
+        if (rowErrors.length > 0) {
+          errors.push({ row: rowNum, error: rowErrors.join('；') });
           failedCount++;
           continue;
         }

@@ -9,7 +9,7 @@
       <!-- 使用說明 -->
       <el-alert type="info" :closable="false" style="margin-bottom: 16px">
         <template #title>
-          請使用標準範本匯入（必要欄位：<strong>場景名稱</strong>、<strong>所屬部門</strong>）。若提供<strong>項目編號</strong>且已存在，將覆蓋更新。
+          請使用標準範本匯入，Excel必須包含<strong>全部 {{ allCols.length }} 個欄位標題</strong>，其中<strong>場景名稱</strong>、<strong>本部</strong>為必填。非必填欄位可保留空白，但<strong>欄位標題不可缺少</strong>。若提供「場景編號」且已存在，將覆蓋更新。
         </template>
         <div class="col-list">
           {{ allCols.join('、') }}
@@ -102,8 +102,13 @@
 
         <!-- 缺失欄位提示 -->
         <div v-if="result.missingColumns" class="error-section">
-          <el-alert type="error" :closable="false" title="❌ 缺少必要欄位，匯入被拒絕">
-            <div class="missing-cols">{{ result.missingColumns.join('、') }}</div>
+          <el-alert type="error" :closable="false" title="❗ Excel 格式不符，無法匯入">
+            <div style="margin-top:8px">
+              <strong>缺少以下 {{ result.missingColumns.length }} 個欄位標題，請下載範本後重新匯入：</strong>
+              <ul style="margin:8px 0 0 20px;padding:0">
+                <li v-for="col in result.missingColumns" :key="col" style="color:#f56c6c">{{ col }}</li>
+              </ul>
+            </div>
           </el-alert>
         </div>
 
@@ -220,7 +225,7 @@ async function handleUpload() {
     const data = e.response?.data
     if (data?.missingColumns) {
       result.value = data
-      ElMessage.error('❌ 缺少必要欄位，匯入被拒絕')
+      ElMessage.error('❗ Excel 格式不符，缺少 ' + data.missingColumns.length + ' 個欄位標題')
     } else {
       ElMessage.error('❌ ' + (data?.error || '匯入失敗'))
     }
