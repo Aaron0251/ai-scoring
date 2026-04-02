@@ -100,7 +100,7 @@ exports.getLeaders = async (req, res) => {
       };
     });
 
-    res.json(result);
+    res.json(result.filter(r => r.scenes.length > 0));
   } catch (err) {
     res.status(500).json({ error: '取得種子負責人追蹤失敗：' + err.message });
   }
