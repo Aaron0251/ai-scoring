@@ -17,6 +17,7 @@ async function getAllowedDivisionIds(user) {
 
 // GET /api/leader-tracking
 // 取得種子負責人（manager role 使用者）列表，含場景統計
+// 關聯邏輯：場景的 seedOwners 欄位包含該 manager 的姓名
 exports.getLeaders = async (req, res) => {
   try {
     const allowedDivIds = await getAllowedDivisionIds(req.user);
@@ -43,38 +44,42 @@ exports.getLeaders = async (req, res) => {
       try {
         const roles = typeof u.roles === 'string' ? JSON.parse(u.roles) : u.roles;
         return Array.isArray(roles) && roles.includes('manager');
-      } catch {
-        return false;
-      }
+      } catch { return false; }
     });
 
     if (managers.length === 0) return res.json([]);
 
-    // 一次性取得所有相關場景
-    const divisionIds = [...new Set(managers.map(m => m.divisionId).filter(Boolean))];
-    const allDepts = divisionIds.length > 0
-      ? await prisma.department.findMany({ where: { divisionId: { in: divisionIds } }, select: { id: true, divisionId: true } })
-      : [];
-    const deptsByDiv = {};
-    for (const d of allDepts) {
-      if (!deptsByDiv[d.divisionId]) deptsByDiv[d.divisionId] = [];
-      deptsByDiv[d.divisionId].push(d.id);
+    // 一次性取得所有場景（依權限範圍）
+    const sceneWhere = { active: true };
+    if (allowedDivIds !== null) {
+      const allDepts = await prisma.department.findMany({
+        where: { divisionId: { in: allowedDivIds } },
+        select: { id: true },
+      });
+      sceneWhere.departmentId = { in: allDepts.map(d => d.id) };
     }
 
-    const allScenes = divisionIds.length > 0
-      ? await prisma.scene.findMany({
-          where: { active: true, departmentId: { in: allDepts.map(d => d.id) } },
-          select: { id: true, itemNo: true, sceneName: true, status: true, progress: true, departmentId: true, executionLogs: { orderBy: { logDate: 'desc' }, take: 1, select: { logDate: true, content: true, status: true } } },
-        })
-      : [];
+    const allScenes = await prisma.scene.findMany({
+      where: sceneWhere,
+      select: {
+        id: true, itemNo: true, sceneName: true, status: true, progress: true,
+        departmentId: true, seedOwners: true,
+        department: { select: { id: true, name: true, divisionId: true } },
+        executionLogs: { orderBy: { logDate: 'desc' }, take: 1, select: { logDate: true, content: true, status: true } },
+      },
+    });
 
-    // 組合回傳資料
+    // 組合回傳：場景 seedOwners 包含 manager 姓名才納入
     const result = managers.map(m => {
       let roles = [];
       try { roles = typeof m.roles === 'string' ? JSON.parse(m.roles) : m.roles; } catch {}
 
-      const myDeptIds = deptsByDiv[m.divisionId] || [];
-      const myScenes = allScenes.filter(s => myDeptIds.includes(s.departmentId));
+      // seedOwners 是逗號分隔字串，拆開後比對 manager 姓名
+      const myScenes = allScenes.filter(s => {
+        if (!s.seedOwners) return false;
+        const owners = s.seedOwners.split(/[,，、]/).map(o => o.trim());
+        return owners.includes(m.name);
+      });
 
       return {
         id: m.id,
