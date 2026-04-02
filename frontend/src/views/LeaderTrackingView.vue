@@ -3,11 +3,16 @@
     <div class="leader-tracking">
       <!-- 頁面標題 -->
       <div class="page-header">
-        <h2 class="page-title">
-          <el-icon><UserFilled /></el-icon>
-          種子負責人場景追蹤
-        </h2>
-        <div class="page-subtitle">掌握各種子負責人的 AI 場景推動進度</div>
+        <div>
+          <h2 class="page-title">
+            <el-icon><UserFilled /></el-icon>
+            種子負責人場景追蹤
+          </h2>
+          <div class="page-subtitle">掌握各種子負責人的 AI 場景推動進度</div>
+        </div>
+        <el-button :loading="loading" @click="loadLeaders">
+          <el-icon><Refresh /></el-icon> 重新整理
+        </el-button>
       </div>
 
       <!-- 載入中 -->
@@ -147,11 +152,11 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onActivated } from 'vue'
 import { useRouter } from 'vue-router'
 import AppLayout from '../components/AppLayout.vue'
 import api from '../api/index.js'
-import { UserFilled, User, ArrowDown, ArrowRight, InfoFilled } from '@element-plus/icons-vue'
+import { UserFilled, User, ArrowDown, ArrowRight, InfoFilled, Refresh } from '@element-plus/icons-vue'
 
 const router = useRouter()
 
@@ -226,7 +231,9 @@ function truncate(str, maxLen) {
   return str.length > maxLen ? str.slice(0, maxLen) + '…' : str
 }
 
-onMounted(async () => {
+async function loadLeaders() {
+  loading.value = true
+  error.value = ''
   try {
     const { data } = await api.get('/leader-tracking')
     leaders.value = data
@@ -235,7 +242,10 @@ onMounted(async () => {
   } finally {
     loading.value = false
   }
-})
+}
+
+onMounted(loadLeaders)
+onActivated(loadLeaders)
 </script>
 
 <style scoped>
@@ -247,6 +257,9 @@ onMounted(async () => {
 
 /* 頁面標題 */
 .page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
   margin-bottom: 20px;
 }
 .page-title {
