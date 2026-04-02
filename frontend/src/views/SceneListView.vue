@@ -107,7 +107,7 @@
         <el-table-column label="預估節省時數" width="115" align="right">
           <template #default="{ row }">{{ (row.originalHours != null && row.improvedHours != null) ? +(row.originalHours - row.improvedHours).toFixed(1) : '-' }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="140" fixed="right">
+        <el-table-column label="操作" width="180" fixed="right">
           <template #default="{ row }">
             <div style="display:flex;gap:6px;">
               <el-button size="small" @click="openDetail(row)">查看</el-button>
@@ -116,6 +116,11 @@
                 size="small" type="primary"
                 @click="openEdit(row)"
               >編輯</el-button>
+              <el-button
+                v-if="auth.isAdmin"
+                size="small" type="danger"
+                @click="handleDelete(row)"
+              >刪除</el-button>
             </div>
           </template>
         </el-table-column>
@@ -178,7 +183,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { scenesApi, divisionsApi, departmentsApi, sectionsApi } from '../api/index.js'
 import * as XLSX from 'xlsx'
 import { useAuthStore } from '../stores/auth.js'
@@ -408,6 +413,23 @@ async function handleCreate() {
 
 function openDetail(row) { router.push(`/scenes/${row.id}`) }
 function openEdit(row) { router.push(`/scenes/${row.id}?edit=1`) }
+
+async function handleDelete(row) {
+  try {
+    await ElMessageBox.confirm(
+      `確定要刪除場景「${row.sceneName}」？此操作無法復原，相關執行日誌與成效記錄也將一併刪除。`,
+      '刪除確認',
+      { confirmButtonText: '確定刪除', cancelButtonText: '取消', type: 'warning', confirmButtonClass: 'el-button--danger' }
+    )
+  } catch { return }
+  try {
+    await scenesApi.remove(row.id)
+    ElMessage.success('場景已刪除')
+    await loadScenes()
+  } catch (e) {
+    ElMessage.error(e.response?.data?.error || '刪除失敗')
+  }
+}
 
 function statusType(s) {
   return { '已完成': 'success', '進行中': 'primary', '暫停': 'warning', '規劃中': 'info' }[s] || ''
