@@ -24,7 +24,7 @@ export const FEATURES = [
   {
     category: '主要功能',
     key: 'scenes',
-    label: '場景管理（列表）',
+    label: '場景管理',
     path: '/scenes',
     icon: 'Document',
     defaultRoles: ['admin', 'manager', 'executive', 'chief'],
