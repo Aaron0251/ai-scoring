@@ -19,7 +19,7 @@ export const FEATURES = [
     label: '總覽儀表板',
     path: '/dashboard',
     icon: 'DataAnalysis',
-    defaultRoles: ['admin', 'manager', 'executive', 'chief', 'boss'],
+    defaultRoles: ['admin', 'manager', 'executive', 'chief'],
   },
   {
     category: '主要功能',
@@ -27,7 +27,7 @@ export const FEATURES = [
     label: '場景管理（列表）',
     path: '/scenes',
     icon: 'Document',
-    defaultRoles: ['admin', 'manager', 'executive', 'chief', 'evaluator', 'boss'],
+    defaultRoles: ['admin', 'manager', 'executive', 'chief'],
   },
   {
     category: '主要功能',
@@ -35,7 +35,7 @@ export const FEATURES = [
     label: '場景詳情',
     path: null, // 動態路由，不顯示在側邊欄
     icon: null,
-    defaultRoles: ['admin', 'manager', 'executive', 'chief', 'evaluator', 'boss'],
+    defaultRoles: ['admin', 'manager', 'executive', 'chief'],
   },
   {
     category: '主要功能',
@@ -51,7 +51,7 @@ export const FEATURES = [
     label: 'Excel 批次匯入',
     path: '/import',
     icon: 'Upload',
-    defaultRoles: ['admin', 'manager', 'boss'],
+    defaultRoles: ['admin', 'manager'],
   },
   // ── 系統管理 ────────────────────────────────
   {

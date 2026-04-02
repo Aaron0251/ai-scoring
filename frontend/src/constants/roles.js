@@ -25,6 +25,7 @@ export const ROLE_MAP = {
   [ROLES.CHIEF]: '主管',
   [ROLES.EXECUTIVE]: '公司管理層',
 }
+// 注意：evaluator、boss 角色已移除
 
 // 取得角色標籤
 export function getRoleLabel(role) {

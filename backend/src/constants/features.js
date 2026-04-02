@@ -14,19 +14,19 @@ const FEATURES = [
     category: '主要功能',
     key: 'dashboard',
     label: '總覽儀表板',
-    defaultRoles: ['admin', 'manager', 'executive', 'chief', 'boss'],
+    defaultRoles: ['admin', 'manager', 'executive', 'chief'],
   },
   {
     category: '主要功能',
     key: 'scenes',
     label: '場景管理（列表）',
-    defaultRoles: ['admin', 'manager', 'executive', 'chief', 'evaluator', 'boss'],
+    defaultRoles: ['admin', 'manager', 'executive', 'chief'],
   },
   {
     category: '主要功能',
     key: 'scene-detail',
     label: '場景詳情',
-    defaultRoles: ['admin', 'manager', 'executive', 'chief', 'evaluator', 'boss'],
+    defaultRoles: ['admin', 'manager', 'executive', 'chief'],
   },
   {
     category: '主要功能',
@@ -38,7 +38,7 @@ const FEATURES = [
     category: '主要功能',
     key: 'import',
     label: 'Excel 批次匯入',
-    defaultRoles: ['admin', 'manager', 'boss'],
+    defaultRoles: ['admin', 'manager'],
   },
   // ── 系統管理 ────────────────────────────────
   {

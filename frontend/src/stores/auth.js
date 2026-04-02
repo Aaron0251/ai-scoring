@@ -9,8 +9,6 @@ export const useAuthStore = defineStore('auth', () => {
   const isLoggedIn = computed(() => !!token.value)
   const isAdmin = computed(() => user.value?.roles?.includes('admin') ?? false)
   const isManager = computed(() => user.value?.roles?.includes('manager') ?? false)
-  const isBoss = computed(() => user.value?.roles?.includes('boss') ?? false)
-  const isEvaluator = computed(() => user.value?.roles?.includes('evaluator') ?? false)
   const isChief = computed(() => user.value?.roles?.includes('chief') ?? false)
   const isExecutive = computed(() => user.value?.roles?.includes('executive') ?? false)
   const hasRole = (role) => user.value?.roles?.includes(role) ?? false
@@ -46,5 +44,5 @@ export const useAuthStore = defineStore('auth', () => {
     return res.data
   }
 
-  return { token, user, isLoggedIn, isAdmin, isManager, isBoss, isEvaluator, isChief, isExecutive, hasRole, allowedFeatures, hasFeature, login, logout, fetchMe }
+  return { token, user, isLoggedIn, isAdmin, isManager, isChief, isExecutive, hasRole, allowedFeatures, hasFeature, login, logout, fetchMe }
 })

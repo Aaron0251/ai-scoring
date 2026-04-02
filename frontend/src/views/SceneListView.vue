@@ -10,7 +10,7 @@
             @click="exportSelected"
           >匯出選取（{{ selectedScenes.length }}）</el-button>
           <el-button
-            v-if="auth.isAdmin || auth.isManager || auth.isBoss || auth.isChief || auth.isExecutive"
+            v-if="auth.isAdmin || auth.isManager || auth.isChief || auth.isExecutive"
             type="primary"
             @click="openCreateDialog"
           >+ 新增場景</el-button>
@@ -112,7 +112,7 @@
             <div style="display:flex;gap:6px;">
               <el-button size="small" @click="openDetail(row)">查看</el-button>
               <el-button
-                v-if="auth.isAdmin || auth.isManager || auth.isBoss || auth.isChief || auth.isExecutive"
+                v-if="auth.isAdmin || auth.isManager || auth.isChief || auth.isExecutive"
                 size="small" type="primary"
                 @click="openEdit(row)"
               >編輯</el-button>
@@ -266,10 +266,10 @@ const allSections = ref([])
 
 const filteredDepts = computed(() => {
   // manager / chief 只能看自己本部的部門
-  if ((auth.isManager || auth.isChief) && !auth.isAdmin && !auth.isBoss && !auth.isExecutive && auth.user?.divisionId) {
+  if ((auth.isManager || auth.isChief) && !auth.isAdmin && !auth.isExecutive && auth.user?.divisionId) {
     return allDepts.value.filter(d => d.divisionId === auth.user.divisionId)
   }
-  // admin / boss / executive 按 filterDivision 篩選
+  // admin / executive 按 filterDivision 篩選
   return filterDivision.value
     ? allDepts.value.filter(d => d.divisionId === filterDivision.value)
     : allDepts.value
@@ -277,7 +277,7 @@ const filteredDepts = computed(() => {
 
 const filteredSections = computed(() => {
   // manager / chief 只能看自己本部部門的課別
-  if ((auth.isManager || auth.isChief) && !auth.isAdmin && !auth.isBoss && !auth.isExecutive && auth.user?.divisionId) {
+  if ((auth.isManager || auth.isChief) && !auth.isAdmin && !auth.isExecutive && auth.user?.divisionId) {
     const myDepts = allDepts.value.filter(d => d.divisionId === auth.user.divisionId)
     if (filterDept.value) {
       return allSections.value.filter(s => s.departmentId === filterDept.value)
@@ -317,15 +317,15 @@ onMounted(async () => {
   allDepts.value = deptRes.data
   allSections.value = secRes.data
 
-  // chief / manager 只能看自己本部的場景（admin / boss / executive 不限制）
-  if ((auth.isChief || auth.isManager) && !auth.isAdmin && !auth.isBoss && !auth.isExecutive && auth.user?.divisionId) {
+  // chief / manager 只能看自己本部的場景（admin / executive 不限制）
+  if ((auth.isChief || auth.isManager) && !auth.isAdmin && !auth.isExecutive && auth.user?.divisionId) {
     filterDivision.value = auth.user.divisionId
   }
 
   await loadScenes()
 
   // manager / chief 預設帶入自己部門（admin / boss / executive 不受限制）
-  if (!auth.isAdmin && !auth.isBoss && !auth.isExecutive && auth.user?.departmentId) {
+  if (!auth.isAdmin && !auth.isExecutive && auth.user?.departmentId) {
     createForm.value.departmentId = auth.user.departmentId
     await loadCreateSections(auth.user.departmentId)
   }
@@ -336,7 +336,7 @@ async function loadScenes() {
   try {
     const params = {}
     // admin / boss 可傳 divisionId 篩選，chief 由後端自動過濾
-    if ((auth.isAdmin || auth.isBoss) && filterDivision.value) params.divisionId = filterDivision.value
+    if (auth.isAdmin && filterDivision.value) params.divisionId = filterDivision.value
     if (filterDept.value) params.departmentId = filterDept.value
     if (filterSection.value) params.sectionId = filterSection.value
     if (filterStatus.value) params.status = filterStatus.value
@@ -352,8 +352,8 @@ async function loadScenes() {
 function onDivisionChange() {
   filterDept.value = null
   filterSection.value = null
-  // chief / manager 防護：不允許改變本部（admin / boss / executive 不受限制）
-  if ((auth.isChief || auth.isManager) && !auth.isAdmin && !auth.isBoss && !auth.isExecutive && auth.user?.divisionId && filterDivision.value !== auth.user.divisionId) {
+  // chief / manager 防護：不允許改變本部（admin / executive 不受限制）
+  if ((auth.isChief || auth.isManager) && !auth.isAdmin && !auth.isExecutive && auth.user?.divisionId && filterDivision.value !== auth.user.divisionId) {
     filterDivision.value = auth.user.divisionId
     return
   }
@@ -378,7 +378,7 @@ function onCreateDeptChange(val) {
 
 function openCreateDialog() {
   createForm.value = {
-    departmentId: (!auth.isAdmin && !auth.isBoss && !auth.isExecutive && auth.user?.departmentId) ? auth.user.departmentId : null,
+    departmentId: (!auth.isAdmin && !auth.isExecutive && auth.user?.departmentId) ? auth.user.departmentId : null,
     sectionId: null,
     sceneName: '',
     maintainOrDevelop: null,

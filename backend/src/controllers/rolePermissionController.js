@@ -2,7 +2,7 @@ const prisma = require('../prisma');
 const { FEATURES } = require('../constants/features');
 
 // 所有角色列表
-const ALL_ROLES = ['admin', 'manager', 'chief', 'executive', 'evaluator', 'boss'];
+const ALL_ROLES = ['admin', 'manager', 'chief', 'executive'];
 
 // 記錄是否已初始化（process 生命週期內只跑一次）
 let _initialized = false;

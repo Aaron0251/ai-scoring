@@ -222,7 +222,7 @@ model SceneBenefit {
 
 model RolePermission {
   id         Int      @id @default(autoincrement())
-  role       String   // admin | manager | chief | executive | evaluator | boss
+  role       String   // admin | manager | chief | executive
   featureKey String   // 對應 features.js 中的 key
   allowed    Boolean  @default(true)
   createdAt  DateTime @default(now())

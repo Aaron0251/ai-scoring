@@ -150,12 +150,12 @@ function roleLabel(role) {
 }
 
 function roleTagType(role) {
-  const map = { admin: 'danger', manager: 'primary', chief: 'warning', executive: 'success', evaluator: 'info', boss: '' }
+  const map = { admin: 'danger', manager: 'primary', chief: 'warning', executive: 'success' }
   return map[role] || 'info'
 }
 
 function switchColor(role) {
-  const map = { admin: '#f56c6c', manager: '#409eff', chief: '#e6a23c', executive: '#67c23a', evaluator: '#909399', boss: '#6366f1' }
+  const map = { admin: '#f56c6c', manager: '#409eff', chief: '#e6a23c', executive: '#67c23a' }
   return map[role] || '#409eff'
 }
 
