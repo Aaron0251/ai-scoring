@@ -302,8 +302,8 @@ exports.update = async (req, res) => {
 
 exports.remove = async (req, res) => {
   const id = parseInt(req.params.id);
-  await prisma.scene.update({ where: { id }, data: { active: false } });
-  res.json({ message: '已封存' });
+  await prisma.scene.delete({ where: { id } });
+  res.json({ message: '已刪除' });
 };
 
 // ── 內部輔助函式 ──────────────────────────────────────────
