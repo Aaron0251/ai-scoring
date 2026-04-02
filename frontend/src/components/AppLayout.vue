@@ -63,6 +63,7 @@
         <el-icon v-if="isMobile" class="hamburger" @click="mobileOpen = !mobileOpen"><Menu /></el-icon>
         <div class="topbar-right">
           <span class="username">{{ auth.user?.name }}</span>
+          <div class="user-avatar">{{ auth.user?.name?.slice(0,1) ?? 'U' }}</div>
           <el-dropdown @command="handleCommand">
             <el-icon style="cursor:pointer; margin-left:8px"><User /></el-icon>
             <template #dropdown>
@@ -245,11 +246,31 @@ function handleCommand(cmd) {
   overflow-y: auto;
   background: #f1f5f9;
   padding: 28px;
+  /* iOS safe area 支援 */
+  padding-bottom: max(28px, env(safe-area-inset-bottom));
+}
+
+.user-avatar {
+  display: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: #6366f1;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
 /* ── 手機版 RWD ── */
 @media (max-width: 768px) {
-  .main-content { padding: 12px; }
+  .main-content {
+    padding: 12px;
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+  }
   .username { display: none; }
+  .user-avatar { display: flex; }
 }
 </style>

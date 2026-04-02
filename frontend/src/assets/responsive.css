@@ -1,73 +1,141 @@
 /* ── 全域 RWD ── */
 
-/* Element Plus 表格手機版橫向捲動 */
+/* Element Plus 表格橫向捲動 */
+.el-table-wrapper,
 .el-table {
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
-/* 手機版 dialog 全螢幕 */
+/* ECharts 圖表手機版保護 */
+.el-card .vue-echarts {
+  min-width: 0;
+}
+
+/* ── 768px 以下 ── */
 @media (max-width: 768px) {
+
+  /* Dialog 幾乎全螢幕 */
   .el-dialog {
     width: 95vw !important;
-    margin: 4px auto !important;
+    margin: 8px auto !important;
   }
-
   .el-dialog__body {
-    padding: 12px 16px !important;
-    max-height: 80vh;
+    padding: 12px 14px !important;
+    max-height: 78vh;
     overflow-y: auto;
   }
 
-  /* 表格文字縮小 */
+  /* 表格 */
   .el-table {
     font-size: 12px;
   }
-
   .el-table .el-button {
-    padding: 4px 6px;
+    padding: 3px 6px;
     font-size: 11px;
   }
+  .el-table .cell {
+    padding: 4px 6px !important;
+  }
 
-  /* 卡片間距縮小 */
+  /* 卡片間距 */
   .el-card {
     margin-bottom: 10px !important;
   }
+  .el-card__header {
+    padding: 10px 14px !important;
+    font-size: 13px;
+  }
+  .el-card__body {
+    padding: 12px 14px !important;
+  }
 
-  /* el-col 全寬 */
+  /* Form */
+  .el-form-item {
+    margin-bottom: 14px !important;
+  }
+  .el-form-item__label {
+    font-size: 13px !important;
+  }
+
+  /* 按鈕 */
+  .el-button {
+    font-size: 13px;
+  }
+
+  /* pagination */
+  .el-pagination {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 4px;
+  }
+  .el-pagination__total,
+  .el-pagination__sizes {
+    display: none !important;
+  }
+
+  /* 頁面標題 */
+  h2 { font-size: 17px !important; }
+  h3 { font-size: 14px !important; }
+
+  /* Tag 縮小 */
+  .el-tag { font-size: 11px; }
+
+  /* el-row gutter 補丁：避免橫向 overflow */
+  .el-row {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+  }
   .el-col {
+    padding-left: 4px !important;
+    padding-right: 4px !important;
+  }
+
+  /* el-col 全寬（只在明確需要時，用 .mobile-full 類別控制） */
+  .mobile-full.el-col {
     width: 100% !important;
     max-width: 100% !important;
     flex: 0 0 100% !important;
   }
 
-  /* form 標籤靠左 */
-  .el-form--label-top .el-form-item__label {
-    padding-bottom: 4px;
-  }
-
-  /* 按鈕組手機版換行 */
+  /* 按鈕群組換行 */
   .el-button-group {
     display: flex;
     flex-wrap: wrap;
     gap: 4px;
   }
 
-  /* pagination 縮小 */
-  .el-pagination {
-    flex-wrap: wrap;
-    justify-content: center;
+  /* Select 下拉寬度 */
+  .el-select {
+    width: 100%;
   }
 
-  /* 頁面標題縮小 */
-  h2, h3 {
-    font-size: 16px !important;
+  /* Progress bar 標籤 */
+  .el-progress-bar__outer {
+    border-radius: 4px;
   }
 }
 
+/* ── 480px 以下（極小螢幕）── */
 @media (max-width: 480px) {
   .el-dialog {
     width: 100vw !important;
     margin: 0 !important;
     border-radius: 0 !important;
+    max-height: 100vh;
+  }
+  .el-dialog__body {
+    max-height: 75vh !important;
+  }
+
+  /* 表格更緊 */
+  .el-table {
+    font-size: 11px;
+  }
+
+  /* 頁籤 */
+  .el-tabs__item {
+    padding: 0 10px !important;
+    font-size: 12px !important;
   }
 }
