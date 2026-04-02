@@ -520,36 +520,45 @@ onActivated(loadLeaders)
 
 /* ── 手機版字體放大 ── */
 @media (max-width: 768px) {
-  .leader-name { font-size: 1.15rem; }
-  .leader-org { font-size: 0.9rem; }
-  .stat-label { font-size: 0.8rem; }
-  .scene-name { font-size: 1rem; }
-  .scene-item-no { font-size: 0.85rem; }
-  .scene-latest-log { font-size: 0.88rem; }
-  .scene-no-log { font-size: 0.88rem; }
-  .scene-card-footer { font-size: 0.85rem; }
-  .leader-header { padding: 14px 12px; }
-  .leader-avatar { width: 44px; height: 44px; }
+  .leader-name { font-size: 1.25rem; }
+  .leader-org { font-size: 1rem; color: #606266; }
+  .stat-label { font-size: 0.9rem; }
+  .scene-name { font-size: 1.05rem; }
+  .scene-item-no { font-size: 0.9rem; }
+  .scene-latest-log { font-size: 0.95rem; }
+  .scene-no-log { font-size: 0.95rem; }
+  .scene-card-footer { font-size: 0.9rem; }
+  .leader-header { padding: 16px 14px; gap: 10px; }
+  .leader-avatar { width: 48px; height: 48px; }
   .scene-card { padding: 14px 12px; }
-  .page-title { font-size: 1.2rem; }
-  .page-subtitle { font-size: 1rem; }
-  .filter-bar { gap: 8px; }
+  .page-title { font-size: 1.3rem; }
+  .page-subtitle { font-size: 1.05rem; }
+  .filter-bar { gap: 8px; flex-direction: column; }
   .search-input, .division-select { min-width: 0; width: 100%; }
+  /* 統計 badge 保持顯示，換行排列 */
+  .scene-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    flex-shrink: 0;
+  }
 }
 
-/* 手機響應式 */
+/* ≤600px 額外調整 */
 @media (max-width: 600px) {
-  .scene-stats {
-    display: none;
-  }
   .leader-header {
-    padding: 12px;
+    flex-wrap: wrap;
+    padding: 14px 12px;
   }
-  .filter-bar {
-    flex-direction: column;
-  }
-  .division-select {
+  .leader-info {
     width: 100%;
+  }
+  .scene-stats {
+    display: flex;
+    gap: 8px;
+  }
+  .expand-icon {
+    margin-left: auto;
   }
 }
 </style>

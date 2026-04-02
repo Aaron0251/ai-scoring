@@ -451,10 +451,10 @@ onMounted(load)
   .section-title { font-size: 16px; margin: 18px 0 10px; }
 
   /* KPI 卡片手機版字體放大 */
-  .kpi-value { font-size: 40px; }
-  .kpi-value small { font-size: 18px; }
-  .kpi-sub { font-size: 14px; }
-  .kpi-label { font-size: 15px; margin-bottom: 6px; }
+  .kpi-value { font-size: 48px; }
+  .kpi-value small { font-size: 20px; }
+  .kpi-sub { font-size: 15px; }
+  .kpi-label { font-size: 16px; margin-bottom: 8px; }
 
   /* 圖表高度縮小 */
   .chart-bar { height: 220px; }
@@ -467,8 +467,20 @@ onMounted(load)
   .alert-cards { display: block; }
   .alert-table { display: none !important; }
 
-  /* Top5 名稱截斷寬度加大 */
-  .top5-name { max-width: 120px; }
-  .top5-value { font-size: 16px; }
+  /* Top5 字體 */
+  .top5-name { max-width: 100%; white-space: normal; font-size: 15px; }
+  .top5-value { font-size: 20px; }
+  .top5-rank { width: 32px; height: 32px; font-size: 15px; }
+
+  /* 各本部卡片字體 */
+  .division-name { font-size: 16px; }
+  .division-total { font-size: 13px; }
+  .division-tags .el-tag { font-size: 13px; }
+  .division-stats { font-size: 14px; gap: 14px; }
+  .division-progress-label { font-size: 14px; }
+
+  /* 預警卡片字體 */
+  .alert-name { font-size: 15px; }
+  .alert-itemno { font-size: 13px; }
 }
 </style>
