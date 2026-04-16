@@ -10,42 +10,47 @@ function parseRoles(user) {
 }
 
 exports.login = async (req, res) => {
-  const { username, password } = req.body;
-  if (!username || !password) {
-    return res.status(400).json({ error: '請提供帳號與密碼' });
+  try {
+    const { username, password } = req.body;
+    if (!username || !password) {
+      return res.status(400).json({ error: '請提供帳號與密碼' });
+    }
+
+    const user = await prisma.user.findUnique({ where: { username } });
+    if (!user || !user.active) {
+      return res.status(401).json({ error: '帳號不存在或已停用' });
+    }
+
+    const valid = await bcrypt.compare(password, user.password);
+    if (!valid) {
+      return res.status(401).json({ error: '密碼錯誤' });
+    }
+
+    const roles = parseRoles(user);
+    const allowedFeatures = await getAllowedFeaturesForRoles(roles);
+    const token = jwt.sign(
+      { id: user.id, username: user.username, roles, name: user.name, divisionId: user.divisionId, departmentId: user.departmentId },
+      JWT_SECRET,
+      { expiresIn: '8h' }
+    );
+
+    res.json({
+      token,
+      user: {
+        id: user.id,
+        username: user.username,
+        name: user.name,
+        roles,
+        allowedFeatures,
+        divisionId: user.divisionId,
+        departmentId: user.departmentId,
+        mustChangePassword: user.mustChangePassword,
+      },
+    });
+  } catch (err) {
+    console.error('[Login Error]', err);
+    res.status(500).json({ error: '伺服器錯誤，請稍後再試' });
   }
-
-  const user = await prisma.user.findUnique({ where: { username } });
-  if (!user || !user.active) {
-    return res.status(401).json({ error: '帳號不存在或已停用' });
-  }
-
-  const valid = await bcrypt.compare(password, user.password);
-  if (!valid) {
-    return res.status(401).json({ error: '密碼錯誤' });
-  }
-
-  const roles = parseRoles(user);
-  const allowedFeatures = await getAllowedFeaturesForRoles(roles);
-  const token = jwt.sign(
-    { id: user.id, username: user.username, roles, name: user.name, divisionId: user.divisionId, departmentId: user.departmentId },
-    JWT_SECRET,
-    { expiresIn: '8h' }
-  );
-
-  res.json({
-    token,
-    user: {
-      id: user.id,
-      username: user.username,
-      name: user.name,
-      roles,
-      allowedFeatures,
-      divisionId: user.divisionId,
-      departmentId: user.departmentId,
-      mustChangePassword: user.mustChangePassword,
-    },
-  });
 };
 
 exports.me = async (req, res) => {
