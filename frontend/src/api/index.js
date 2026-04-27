@@ -136,22 +136,6 @@ export const dashboardApi = {
   executionTable: () => api.get('/dashboard/execution-table'),
 }
 
-// ── 評核週期 & 項目 ───────────────────────────
-export const periodsApi = {
-  list: () => api.get('/periods'),
-  get: (id) => api.get(`/periods/${id}`),
-  create: (data) => api.post('/periods', data),
-  update: (id, data) => api.put(`/periods/${id}`, data),
-  remove: (id) => api.delete(`/periods/${id}`),
-}
-
-export const criteriaApi = {
-  list: (params) => api.get('/criteria', { params }),
-  create: (data) => api.post('/criteria', data),
-  update: (id, data) => api.put(`/criteria/${id}`, data),
-  remove: (id) => api.delete(`/criteria/${id}`),
-}
-
 // ── 评分相关 API 已删除 ──
 
 export const efficiencyReportsApi = {

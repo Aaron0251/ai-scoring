@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 系統功能清單定義
  * 這是唯一的功能來源，新增功能時只需在此加入一筆即可自動出現在角色設定介面
  *
@@ -30,9 +30,15 @@ const FEATURES = [
   },
   {
     category: '主要功能',
+    key: 'weekly-tracking',
+    label: '各本部週進度追蹤',
+    defaultRoles: ['admin', 'manager', 'executive', 'chief'],
+  },
+  {
+    category: '主要功能',
     key: 'import',
     label: 'Excel 批次匯入',
-    defaultRoles: ['admin', 'manager'],
+    defaultRoles: ['admin', 'manager', 'chief'],
   },
   // ── 系統管理 ────────────────────────────────
   {

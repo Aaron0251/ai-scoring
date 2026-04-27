@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 系統功能清單定義（前端版）
  * 此為唯一功能來源，新增功能時在此加入即可自動出現在角色設定介面
  *
@@ -29,12 +29,20 @@ export const FEATURES = [
     icon: 'Document',
     defaultRoles: ['admin', 'manager', 'executive', 'chief'],
   },
-  {
+    {
     category: '主要功能',
     key: 'leader-tracking',
     label: '種子負責人場景追蹤',
     path: '/leader-tracking',
     icon: 'UserFilled',
+    defaultRoles: ['admin', 'manager', 'executive', 'chief'],
+  },
+  {
+    category: '主要功能',
+    key: 'weekly-tracking',
+    label: '各本部週進度追蹤',
+    path: '/weekly-tracking',
+    icon: 'Calendar',
     defaultRoles: ['admin', 'manager', 'executive', 'chief'],
   },
   {

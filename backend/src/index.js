@@ -1,4 +1,4 @@
-require('dotenv').config();
+﻿require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -21,7 +21,8 @@ const dashboardRoutes          = require('./routes/dashboard');
 const efficiencyReportsRoutes  = require('./routes/efficiency-reports');
 const leaderTrackingRoutes     = require('./routes/leader-tracking');
 const rolePermissionsRoutes    = require('./routes/role-permissions');
-const actualSavingsRoutes       = require('./routes/actual-savings');
+const actualSavingsRoutes      = require('./routes/actual-savings');
+const weeklyTrackingRoutes     = require('./routes/weekly-tracking');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -40,6 +41,8 @@ app.use(cors({
   origin: (origin, callback) => {
     if (!origin) return callback(null, true);
     if (allowedOrigins.includes(origin)) return callback(null, true);
+    // 開發模式：允許所有 localhost（任何 port）
+    if (process.env.NODE_ENV !== 'production' && /^http:\/\/localhost(:\d+)?$/.test(origin)) return callback(null, true);
     // 允許所有 Vercel preview deployment（*.vercel.app）
     if (/^https:\/\/[^.]+\.vercel\.app$/.test(origin)) return callback(null, true);
     callback(new Error(`CORS: origin ${origin} not allowed`));
@@ -75,6 +78,7 @@ app.use('/api/scenes/:sceneId/actual-savings', actualSavingsRoutes);
 app.use('/api/import',                  importRoutes);
 app.use('/api/config',                  configRoutes);
 app.use('/api/dashboard',               dashboardRoutes);
+app.use('/api/weekly-tracking',         weeklyTrackingRoutes);
 // 评分相关路由已删除
 app.use('/api/efficiency-reports',      efficiencyReportsRoutes);
 app.use('/api/leader-tracking',         leaderTrackingRoutes);

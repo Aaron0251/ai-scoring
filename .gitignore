@@ -16,6 +16,9 @@ backend/uploads/*
 .env.*.local
 backend/.env
 frontend/.env
+frontend/.env.local
+frontend/.env.production
+frontend/.env.development
 
 # Build output
 frontend/dist/

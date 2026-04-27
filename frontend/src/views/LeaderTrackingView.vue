@@ -27,19 +27,22 @@
       <template v-else>
         <!-- 搜尋篩選列 -->
         <div class="filter-bar">
-          <el-input
-            v-model="searchKeyword"
-            placeholder="搜尋種子負責人姓名..."
-            clearable
-            prefix-icon="Search"
-            class="search-input"
-          />
-          <el-select v-model="filterDivision" placeholder="篩選本部" clearable class="division-select">
+          <el-select v-model="filterDivision" placeholder="篩選本部（全部）" clearable class="division-select" @change="handleDivisionChange">
+            <el-option label="全部本部" value="" />
             <el-option
               v-for="div in divisionOptions"
-              :key="div"
-              :label="div"
-              :value="div"
+              :key="div.id"
+              :label="div.name"
+              :value="div.name"
+            />
+          </el-select>
+          <el-select v-model="searchKeyword" placeholder="選擇種子負責人（全部）" clearable class="search-input">
+            <el-option label="全部種子負責人" value="" />
+            <el-option
+              v-for="name in leaderOptions"
+              :key="name"
+              :label="name"
+              :value="name"
             />
           </el-select>
         </div>
@@ -156,34 +159,39 @@ import { ref, computed, onMounted, onActivated } from 'vue'
 import { useRouter } from 'vue-router'
 import AppLayout from '../components/AppLayout.vue'
 import api from '../api/index.js'
+import { divisionsApi } from '../api/index.js'
 import { UserFilled, User, ArrowDown, ArrowRight, InfoFilled, Refresh } from '@element-plus/icons-vue'
 
 const router = useRouter()
 
-const leaders       = ref([])
-const loading       = ref(true)
-const error         = ref('')
-const searchKeyword = ref('')
+const leaders        = ref([])
+const loading        = ref(true)
+const error          = ref('')
+const searchKeyword  = ref('')
 const filterDivision = ref('')
 const expandedLeaders = ref(new Set())
+const divisionOptions = ref([])
 
-// 本部篩選選項
-const divisionOptions = computed(() => {
-  const divs = new Set()
-  for (const l of leaders.value) {
-    if (l.division?.name) divs.add(l.division.name)
-  }
-  return [...divs].sort()
+// 種子負責人下拉選項（依本部篩選）
+const leaderOptions = computed(() => {
+  const filtered = filterDivision.value
+    ? leaders.value.filter(l => l.division?.name === filterDivision.value)
+    : leaders.value
+  return [...new Set(filtered.map(l => l.name))].sort()
 })
 
 // 篩選後的種子負責人
 const filteredLeaders = computed(() => {
   return leaders.value.filter(l => {
-    const matchName = !searchKeyword.value || l.name.includes(searchKeyword.value)
+    const matchName = !searchKeyword.value || l.name === searchKeyword.value
     const matchDiv  = !filterDivision.value || l.division?.name === filterDivision.value
     return matchName && matchDiv
   })
 })
+
+function handleDivisionChange() {
+  searchKeyword.value = ''
+}
 
 function toggleLeader(id) {
   if (expandedLeaders.value.has(id)) {
@@ -235,8 +243,12 @@ async function loadLeaders() {
   loading.value = true
   error.value = ''
   try {
-    const { data } = await api.get('/leader-tracking')
-    leaders.value = data
+    const [leadersRes, divsRes] = await Promise.all([
+      api.get('/leader-tracking'),
+      divisionsApi.list(),
+    ])
+    leaders.value = leadersRes.data
+    divisionOptions.value = divsRes.data || []
   } catch (e) {
     error.value = e.response?.data?.error || '載入失敗，請重試'
   } finally {
@@ -285,10 +297,10 @@ onActivated(loadLeaders)
 }
 .search-input {
   flex: 1;
-  min-width: 200px;
+  min-width: 180px;
 }
 .division-select {
-  min-width: 150px;
+  min-width: 180px;
 }
 
 /* 種子負責人卡片 */

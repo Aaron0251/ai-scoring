@@ -1,5 +1,31 @@
 const prisma = require('../prisma');
 
+const MONTH_KEYS = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+
+// ── 115年（2026）年化計算輔助 ────────────────────────────────
+const YEAR_115_START = new Date('2026-01-01T00:00:00');
+const YEAR_115_END   = new Date('2026-12-31T23:59:59');
+
+/** 計算 fromDate 到 115年底之間的月數（最大12，最小0） */
+function monthsIn115(fromDate) {
+  const start = fromDate < YEAR_115_START ? YEAR_115_START : fromDate;
+  if (start > YEAR_115_END) return 0;
+  const diffMs = YEAR_115_END.getTime() - start.getTime();
+  return diffMs / (1000 * 60 * 60 * 24 * 30.4375); // 平均每月天數
+}
+
+/** 取場景的月均節省時數 */
+function sceneMonthly(s) {
+  if (s.savingHoursMonthly != null) return s.savingHoursMonthly;
+  return Math.max(0, (s.originalHours || 0) - (s.improvedHours || 0));
+}
+
+function sumActualSavings(actualSavings) {
+  return actualSavings.reduce((total, a) => {
+    return total + MONTH_KEYS.reduce((s, k) => s + (a[k] || 0), 0);
+  }, 0);
+}
+
 exports.getStats = async (req, res) => {
   try {
     const [kpi, divisions, pieData, efficiencyGains, top5, departmentDist, alertList, toolTreemap] = await Promise.all([
@@ -41,9 +67,7 @@ exports.getStatsLegacy = async (req, res) => {
   const divisions = divisionStats.map(div => {
     const allScenes = div.departments.flatMap(d => d.scenes);
     const completedWithLive = allScenes.filter(s => s.status === '已完成' && s.goLiveDate);
-    const actualSavingsTotal = completedWithLive.flatMap(s => s.actualSavings).reduce((sum, a) => {
-      return sum + [a.m1,a.m2,a.m3,a.m4,a.m5,a.m6,a.m7,a.m8,a.m9,a.m10,a.m11,a.m12].reduce((s,v) => s+(v||0), 0);
-    }, 0);
+    const actualSavingsTotal = sumActualSavings(completedWithLive.flatMap(s => s.actualSavings));
     const headcountSaved = completedWithLive.reduce((sum, s) => sum + ((s.originalHeadcount||0) - (s.improvedHeadcount||0)), 0);
     return {
       name: div.name,
@@ -146,28 +170,34 @@ async function getDivisionStats() {
         include: {
           scenes: {
             where: { active: true, status: { not: '暫定' } },
-            select: { status: true, originalHours: true, improvedHours: true, goLiveDate: true, originalHeadcount: true, improvedHeadcount: true, actualSavings: true, progress: true },
+            select: { status: true, originalHours: true, improvedHours: true, savingHoursMonthly: true, goLiveDate: true, originalHeadcount: true, improvedHeadcount: true, actualSavings: true, progress: true },
           },
         },
       },
     },
     orderBy: { name: 'asc' },
   });
+  const today = new Date();
   return divisionStats.map(div => {
     const allScenes = div.departments.flatMap(d => d.scenes);
     const completedWithLive = allScenes.filter(s => s.status === '已完成' && s.goLiveDate);
-    const actualSavingsTotal = completedWithLive.flatMap(s => s.actualSavings).reduce((sum, a) => {
-      return sum + [a.m1,a.m2,a.m3,a.m4,a.m5,a.m6,a.m7,a.m8,a.m9,a.m10,a.m11,a.m12].reduce((s,v) => s+(v||0), 0);
-    }, 0);
+    const actualSavingsTotal = sumActualSavings(completedWithLive.flatMap(s => s.actualSavings));
     const headcountSaved = completedWithLive.reduce((sum, s) => sum + ((s.originalHeadcount||0) - (s.improvedHeadcount||0)), 0);
     const avgProgress = allScenes.length > 0 ? Math.round(allScenes.reduce((s, x) => s + (x.progress || 0), 0) / allScenes.length) : 0;
+    // 115年年化節省時數（已上線依 goLiveDate，未上線依今天）
+    const estimatedSaved = allScenes.reduce((sum, s) => {
+      const monthly = sceneMonthly(s);
+      if (monthly <= 0) return sum;
+      const refDate = s.goLiveDate ? new Date(s.goLiveDate) : today;
+      return sum + monthly * monthsIn115(refDate);
+    }, 0);
     return {
       name: div.name,
       total: allScenes.length,
       completed: allScenes.filter(s => s.status === '已完成').length,
       inProgress: allScenes.filter(s => s.status === '進行中').length,
       planned: allScenes.filter(s => s.status === '規劃中').length,
-      estimatedSaved: allScenes.reduce((sum, s) => sum + ((s.originalHours||0) - (s.improvedHours||0)), 0),
+      estimatedSaved,
       actualSavingsTotal,
       headcountSaved,
       avgProgress,
@@ -210,7 +240,8 @@ async function getTop5Scenes() {
   const scenes = await prisma.scene.findMany({
     where: { active: true, status: { not: '暫定' } },
     select: { id: true, itemNo: true, sceneName: true, originalHours: true, improvedHours: true, originalHeadcount: true, improvedHeadcount: true, status: true, priority: true, progress: true },
-    orderBy: [{ originalHours: 'desc' }],
+    orderBy: { originalHours: 'desc' },
+    take: 20,
   });
   return scenes
     .map(s => ({
@@ -316,10 +347,35 @@ async function getKpiStats() {
   const configMap = {};
   for (const c of configs) configMap[c.key] = c.value;
 
-  const timeSums = await prisma.scene.aggregate({
+  // 年化節省時數 + 平均進度（全部場景一次查，避免多次 roundtrip）
+  const allScenesForSaving = await prisma.scene.findMany({
     where: { active: true },
-    _sum: { originalHours: true, improvedHours: true },
+    select: { originalHours: true, improvedHours: true, savingHoursMonthly: true, goLiveDate: true, progress: true },
   });
+  const today = new Date();
+
+  // 平均進度：所有場景直接平均（與 Weekly Tracking 一致）
+  const avgProgress = allScenesForSaving.length > 0
+    ? Math.round(allScenesForSaving.reduce((s, x) => s + (x.progress || 0), 0) / allScenesForSaving.length)
+    : 0;
+
+  // 預估月均：所有場景月均節省時數加總（原邏輯）
+  const estimatedTimeSaved = allScenesForSaving.reduce((sum, s) => sum + sceneMonthly(s), 0);
+
+  // 實際月均：僅已上線（有 goLiveDate）場景的月均加總
+  const actualMonthlyAvg = allScenesForSaving
+    .filter(s => s.goLiveDate != null)
+    .reduce((sum, s) => sum + sceneMonthly(s), 0);
+
+  // 115年年化節省時數：
+  //   已上線 → 依 goLiveDate 算出在115年內的月數
+  //   未上線 → 依今天到115年底的月數
+  const annualizedSaved115 = allScenesForSaving.reduce((sum, s) => {
+    const monthly = sceneMonthly(s);
+    if (monthly <= 0) return sum;
+    const refDate = s.goLiveDate ? new Date(s.goLiveDate) : today;
+    return sum + monthly * monthsIn115(refDate);
+  }, 0);
 
   // 成效：狀態=已完成 且 有上線日期
   const effectiveScenes = await prisma.scene.findMany({
@@ -328,9 +384,7 @@ async function getKpiStats() {
   });
 
   const effectiveCount = effectiveScenes.length;
-  const actualTimeSavedTotal = effectiveScenes.flatMap(s => s.actualSavings).reduce((sum, a) => {
-    return sum + [a.m1,a.m2,a.m3,a.m4,a.m5,a.m6,a.m7,a.m8,a.m9,a.m10,a.m11,a.m12].reduce((s,v) => s+(v||0), 0);
-  }, 0);
+  const actualTimeSavedTotal = sumActualSavings(effectiveScenes.flatMap(s => s.actualSavings));
   const headcountSaved = effectiveScenes.reduce((sum, s) => sum + ((s.originalHeadcount||0) - (s.improvedHeadcount||0)), 0);
 
   return {
@@ -340,7 +394,10 @@ async function getKpiStats() {
     plannedScenes: totalScenes - completedScenes - inProgressScenes,
     targetScenes: parseInt(configMap.target_scenes || '100'),
     targetHours: parseInt(configMap.target_hours || '10000'),
-    estimatedTimeSaved: (timeSums._sum.originalHours || 0) - (timeSums._sum.improvedHours || 0),
+    avgProgress,          // 所有場景直接平均進度
+    estimatedTimeSaved,   // 預估月均（所有場景）
+    actualMonthlyAvg,     // 實際月均（已上線場景）
+    annualizedSaved115,   // 115年年化預估節省時數
     completionRate: totalScenes > 0 ? Math.round((completedScenes / totalScenes) * 100) : 0,
     // 成效區（完成+有上線日期）
     effectiveCount,

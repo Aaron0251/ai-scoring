@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <el-container class="layout">
     <!-- 手機遮罩 -->
     <div v-if="isMobile && mobileOpen" class="mobile-overlay" @click="mobileOpen = false" />
@@ -39,6 +39,10 @@
           <el-icon><UserFilled /></el-icon>
           <span>種子負責人追蹤</span>
         </el-menu-item>
+          <el-menu-item v-if="auth.hasFeature('weekly-tracking')"                    index="/weekly-tracking">
+            <el-icon><Calendar /></el-icon>
+                <span>各本部週進度追蹤</span>
+       </el-menu-item>
         <el-menu-item v-if="auth.hasFeature('import')" index="/import">
           <el-icon><Upload /></el-icon>
           <span>Excel 匯入</span>

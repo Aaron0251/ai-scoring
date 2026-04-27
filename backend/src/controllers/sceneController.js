@@ -1,102 +1,69 @@
 const prisma = require('../prisma');
 
+// ── 共用：解析使用者可存取的部門 ID 清單 ────────────────────
+// 回傳 null 表示無限制（admin/boss/executive）
+// 回傳 [] 表示無任何存取權
+// 回傳 number[] 表示允許的部門 ID 清單
+async function getAccessibleDeptIds(user) {
+  const { roles } = user;
+
+  if (roles.includes('admin') || roles.includes('boss') || roles.includes('executive')) {
+    return null;
+  }
+
+  const isManager = roles.includes('manager');
+  const isChief   = roles.includes('chief');
+
+  if (!isManager && !isChief) return [];
+
+  if (user.divisionId) {
+    const depts = await prisma.department.findMany({
+      where: { divisionId: user.divisionId },
+      select: { id: true },
+    });
+    return depts.map(d => d.id);
+  }
+
+  // manager 沒有 divisionId 則無存取權
+  if (isManager && !isChief) return [];
+
+  // chief 沒有 divisionId → 依 orgChief 指派決定
+  const orgChiefs = await prisma.orgChief.findMany({ where: { userId: user.id } });
+  if (orgChiefs.length === 0) return [];
+
+  const deptSet = new Set();
+  for (const oc of orgChiefs) {
+    if (oc.entityType === 'division') {
+      const depts = await prisma.department.findMany({ where: { divisionId: oc.entityId }, select: { id: true } });
+      depts.forEach(d => deptSet.add(d.id));
+    } else if (oc.entityType === 'department') {
+      deptSet.add(oc.entityId);
+    } else if (oc.entityType === 'section') {
+      const sec = await prisma.section.findUnique({ where: { id: oc.entityId }, select: { departmentId: true } });
+      if (sec) deptSet.add(sec.departmentId);
+    }
+  }
+  return [...deptSet];
+}
+
 // ── 輔助：判斷使用者能否存取特定場景 ──────────────────────
 async function canAccessScene(sceneId, user) {
-  const roles = user.roles;
-  if (roles.includes('admin') || roles.includes('boss') || roles.includes('executive')) return true;
+  const allowedDeptIds = await getAccessibleDeptIds(user);
+  if (allowedDeptIds === null) return true;
+  if (allowedDeptIds.length === 0) return false;
 
   const scene = await prisma.scene.findUnique({
     where: { id: sceneId },
-    select: {
-      departmentId: true,
-      taskOwners: true,
-      seedOwners: true,
-      department: { select: { divisionId: true } },
-    },
+    select: { departmentId: true },
   });
-  if (!scene) return false;
-
-  if (roles.includes('chief')) {
-    if (user.divisionId) {
-      return scene.department?.divisionId === user.divisionId;
-    }
-    const orgChiefs = await prisma.orgChief.findMany({ where: { userId: user.id } });
-    const deptSet = new Set();
-    for (const oc of orgChiefs) {
-      if (oc.entityType === 'division') {
-        const depts = await prisma.department.findMany({ where: { divisionId: oc.entityId }, select: { id: true } });
-        depts.forEach(d => deptSet.add(d.id));
-      } else if (oc.entityType === 'department') {
-        deptSet.add(oc.entityId);
-      } else if (oc.entityType === 'section') {
-        const sec = await prisma.section.findUnique({ where: { id: oc.entityId }, select: { departmentId: true } });
-        if (sec) deptSet.add(sec.departmentId);
-      }
-    }
-    return deptSet.has(scene.departmentId);
-  }
-
-  if (roles.includes('manager')) {
-    if (user.divisionId) {
-      return scene.department?.divisionId === user.divisionId;
-    }
-    return false;
-  }
-
-  return false;
+  return scene ? allowedDeptIds.includes(scene.departmentId) : false;
 }
 
 exports.getAll = async (req, res) => {
   const { departmentId, sectionId, divisionId, status, priority, keyword, active } = req.query;
-  const roles = req.user.roles;
-  const userName = req.user.name;
 
-  let allowedDeptIds = null;
-  let nameFilter = null;
-
-  if (!roles.includes('admin') && !roles.includes('boss') && !roles.includes('executive')) {
-    const isManager = roles.includes('manager');
-    const isChief = roles.includes('chief');
-
-    if (isManager && !isChief) {
-      // manager 依本部（divisionId）過濾，與 chief 相同邏輯
-      if (req.user.divisionId) {
-        const depts = await prisma.department.findMany({
-          where: { divisionId: req.user.divisionId },
-          select: { id: true },
-        });
-        allowedDeptIds = depts.map(d => d.id);
-      } else {
-        return res.json([]);
-      }
-    } else if (isChief) {
-      let deptSet = new Set();
-      if (req.user.divisionId) {
-        const depts = await prisma.department.findMany({
-          where: { divisionId: req.user.divisionId },
-          select: { id: true },
-        });
-        depts.forEach(d => deptSet.add(d.id));
-      } else {
-        const orgChiefs = await prisma.orgChief.findMany({ where: { userId: req.user.id } });
-        if (orgChiefs.length === 0) return res.json([]);
-        for (const oc of orgChiefs) {
-          if (oc.entityType === 'division') {
-            const depts = await prisma.department.findMany({ where: { divisionId: oc.entityId }, select: { id: true } });
-            depts.forEach(d => deptSet.add(d.id));
-          } else if (oc.entityType === 'department') {
-            deptSet.add(oc.entityId);
-          } else if (oc.entityType === 'section') {
-            const sec = await prisma.section.findUnique({ where: { id: oc.entityId }, select: { departmentId: true } });
-            if (sec) deptSet.add(sec.departmentId);
-          }
-        }
-      }
-      allowedDeptIds = [...deptSet];
-    } else {
-      return res.json([]);
-    }
-  }
+  const allowedDeptIds = await getAccessibleDeptIds(req.user);
+  if (Array.isArray(allowedDeptIds) && allowedDeptIds.length === 0) return res.json([]);
 
   const where = {};
   if (allowedDeptIds !== null) where.departmentId = { in: allowedDeptIds };
@@ -116,13 +83,6 @@ exports.getAll = async (req, res) => {
   if (priority)  where.priority  = priority;
   if (keyword)   where.sceneName = { contains: keyword };
   where.active = active !== undefined ? active === 'true' : true;
-
-  if (nameFilter) {
-    where.OR = [
-      { taskOwners: { contains: nameFilter } },
-      { seedOwners: { contains: nameFilter } },
-    ];
-  }
 
   const scenes = await prisma.scene.findMany({
     where,
@@ -146,44 +106,15 @@ exports.getAll = async (req, res) => {
 exports.getOne = async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    const roles = req.user.roles;
     const scene = await prisma.scene.findUnique({
       where: { id },
       include: { department: { include: { division: true } }, section: true, benefits: true },
     });
     if (!scene) return res.status(404).json({ error: '場景不存在' });
 
-    if (!roles.includes('admin') && !roles.includes('executive') && !roles.includes('boss')) {
-      if (roles.includes('chief')) {
-        let allowed = false;
-        if (req.user.divisionId) {
-          allowed = scene.department?.divisionId === req.user.divisionId;
-        } else {
-          const orgChiefs = await prisma.orgChief.findMany({ where: { userId: req.user.id } });
-          const deptSet = new Set();
-          for (const oc of orgChiefs) {
-            if (oc.entityType === 'division') {
-              const depts = await prisma.department.findMany({ where: { divisionId: oc.entityId }, select: { id: true } });
-              depts.forEach(d => deptSet.add(d.id));
-            } else if (oc.entityType === 'department') {
-              deptSet.add(oc.entityId);
-            } else if (oc.entityType === 'section') {
-              const sec = await prisma.section.findUnique({ where: { id: oc.entityId }, select: { departmentId: true } });
-              if (sec) deptSet.add(sec.departmentId);
-            }
-          }
-          allowed = deptSet.has(scene.departmentId);
-        }
-        if (!allowed) return res.status(403).json({ error: '無權存取此場景' });
-      } else if (roles.includes('manager')) {
-        let allowed = false;
-        if (req.user.divisionId) {
-          allowed = scene.department?.divisionId === req.user.divisionId;
-        }
-        if (!allowed) return res.status(403).json({ error: '無權存取此場景' });
-      } else {
-        return res.status(403).json({ error: '無權存取此場景' });
-      }
+    const allowedDeptIds = await getAccessibleDeptIds(req.user);
+    if (allowedDeptIds !== null && !allowedDeptIds.includes(scene.departmentId)) {
+      return res.status(403).json({ error: '無權存取此場景' });
     }
 
     res.json({ ...scene, efficiencyGainPct: calcEfficiencyGain(scene) });
@@ -250,11 +181,13 @@ exports.update = async (req, res) => {
     return res.status(403).json({ error: '僅限管理員、推動管理者、業務主管、主管或公司管理層編輯場景' });
   }
   const id = parseInt(req.params.id);
-  // manager 只能編輯本部場景
   if (roles.includes('manager') && !roles.includes('admin') && !roles.includes('boss') && !roles.includes('executive')) {
     const accessible = await canAccessScene(id, req.user);
     if (!accessible) return res.status(403).json({ error: '無權編輯此場景' });
   }
+
+  const oldScene = await prisma.scene.findUnique({ where: { id } });
+
   const body = req.body;
   const data = {};
 
@@ -287,15 +220,24 @@ exports.update = async (req, res) => {
     data.itAssisted = body.itAssisted !== null ? Boolean(body.itAssisted) : null;
   }
 
-  if (data.status === '已完成' && !data.completedDate) {
-    data.completedDate = new Date();
-  }
-
   const scene = await prisma.scene.update({
     where: { id },
     data,
     include: { department: { include: { division: true } }, section: true, benefits: true },
   });
+
+  // 進度變更時記錄歷史
+  if (oldScene && body.progress !== undefined && oldScene.progress !== scene.progress) {
+    await prisma.sceneProgressHistory.create({
+      data: {
+        sceneId: id,
+        progressValue: scene.progress,
+        changedAt: new Date(),
+        changedBy: req.user.username,
+        remarks: body.progressRemarks || null,
+      },
+    });
+  }
 
   res.json({ ...scene, efficiencyGainPct: calcEfficiencyGain(scene) });
 };

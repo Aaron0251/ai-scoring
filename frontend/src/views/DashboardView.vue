@@ -3,9 +3,21 @@
     <div class="dashboard" v-loading="loading">
       <div class="dashboard-header">
         <h2 class="page-title">AI 推動評分 Dashboard</h2>
-        <el-button @click="load" :loading="loading" size="small" plain>
-          <el-icon><Refresh /></el-icon> 重新整理
-        </el-button>
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+          <!-- admin / executive 可切換本部 -->
+          <template v-if="canSwitchDivision">
+            <el-select v-model="selectedDivisionId" placeholder="全部本部" clearable style="width:160px" size="small" @change="load">
+              <el-option v-for="d in allDivisions" :key="d.id" :label="d.name" :value="d.id" />
+            </el-select>
+          </template>
+          <!-- chief / manager 顯示所屬本部標籤 -->
+          <el-tag v-else-if="myDivisionName" type="primary" size="default">
+            目前檢視：{{ myDivisionName }}
+          </el-tag>
+          <el-button @click="load" :loading="loading" size="small" plain>
+            <el-icon><Refresh /></el-icon> 重新整理
+          </el-button>
+        </div>
       </div>
 
       <!-- ① 核心 KPI 總覽 -->
@@ -21,10 +33,13 @@
         </el-col>
         <el-col :xs="24" :sm="6">
           <el-card class="kpi-card orange">
-            <div class="kpi-label">預估節省時數（月）</div>
-            <div class="kpi-value">{{ kpi.estimatedTimeSaved?.toFixed(0) ?? '-' }} <small>h</small></div>
-            <div class="kpi-sub">年化 {{ ((kpi.estimatedTimeSaved||0)*12).toFixed(0) }} h／目標 {{ kpi.targetHours?.toLocaleString() }}</div>
-            <el-progress :percentage="Math.min(Math.round((kpi.estimatedTimeSaved/kpi.targetHours)*100)||0,100)" :stroke-width="6" status="warning" class="kpi-progress" />
+            <div class="kpi-label">115年預估節省時數</div>
+            <div class="kpi-value">{{ Math.round(kpi.annualizedSaved115||0).toLocaleString() }} <small>h</small></div>
+            <div class="kpi-sub" style="display:flex;justify-content:space-between">
+              <span>預估月均 {{ (kpi.estimatedTimeSaved||0).toFixed(0) }} h</span>
+              <span>實際月均 {{ (kpi.actualMonthlyAvg||0).toFixed(0) }} h</span>
+            </div>
+            <el-progress :percentage="Math.min(Math.round(((kpi.annualizedSaved115||0)/kpi.targetHours)*100)||0,100)" :stroke-width="6" status="warning" class="kpi-progress" />
           </el-card>
         </el-col>
         <el-col :xs="24" :sm="6">
@@ -90,7 +105,7 @@
             <template #header><span>各本部執行狀況</span></template>
             <!-- 手機版：卡片式列表 -->
             <div class="division-cards">
-              <div v-for="row in divisions" :key="row.name" class="division-card-item">
+              <div v-for="row in filteredDivisions" :key="row.name" class="division-card-item">
                 <div class="division-card-header">
                   <span class="division-name">{{ row.name }}</span>
                   <span class="division-total">共 {{ row.total }} 個</span>
@@ -105,14 +120,14 @@
                   <el-progress :percentage="row.avgProgress" :stroke-width="6" style="flex:1" />
                 </div>
                 <div class="division-stats">
-                  <span>預估省時 <b>{{ row.estimatedSaved.toFixed(0) }}</b>h</span>
+                  <span>115年省時 <b>{{ Math.round(row.estimatedSaved||0) }}</b>h</span>
                   <span>實際省時 <b>{{ row.actualSavingsTotal.toFixed(0) }}</b>h</span>
                   <span>省人數 <b>{{ row.headcountSaved }}</b></span>
                 </div>
               </div>
             </div>
             <!-- 桌機版：表格 -->
-            <el-table :data="divisions" size="small" stripe style="width:100%" class="division-table">
+            <el-table :data="filteredDivisions" size="small" stripe style="width:100%" class="division-table">
               <el-table-column prop="name" label="本部" min-width="120" />
               <el-table-column prop="total" label="總數" width="60" align="center" />
               <el-table-column label="完成" width="60" align="center">
@@ -135,8 +150,8 @@
                   <el-progress :percentage="row.avgProgress" :stroke-width="8" />
                 </template>
               </el-table-column>
-              <el-table-column label="預估節省(h)" align="right" min-width="100">
-                <template #default="{row}">{{ row.estimatedSaved.toFixed(0) }}</template>
+              <el-table-column label="115年預估節省(h)" align="right" min-width="110">
+                <template #default="{row}">{{ Math.round(row.estimatedSaved||0).toLocaleString() }}</template>
               </el-table-column>
               <el-table-column label="實際節省(h)" align="right" min-width="100">
                 <template #default="{row}">{{ row.actualSavingsTotal.toFixed(0) }}</template>
@@ -222,13 +237,17 @@ import { BarChart, PieChart, ScatterChart, TreemapChart } from 'echarts/charts'
 import { GridComponent, TooltipComponent, LegendComponent, TitleComponent } from 'echarts/components'
 import VChart from 'vue-echarts'
 import AppLayout from '@/components/AppLayout.vue'
-import { dashboardApi } from '@/api/index.js'
+import { dashboardApi, divisionsApi } from '@/api/index.js'
 import { Refresh } from '@element-plus/icons-vue'
+import { useAuthStore } from '@/stores/auth.js'
 
 use([CanvasRenderer, BarChart, PieChart, ScatterChart, TreemapChart, GridComponent, TooltipComponent, LegendComponent, TitleComponent])
 
+const auth = useAuthStore()
 const loading = ref(false)
 const kpi = ref({})
+const allDivisions = ref([])   // 完整本部清單（供切換用）
+const selectedDivisionId = ref(null)  // null = 全部
 const divisions = ref([])
 const pieData = ref([])
 const efficiencyGains = ref([])
@@ -236,10 +255,20 @@ const top5 = ref([])
 const alertList = ref([])
 const toolTreemap = ref([])
 
-const avgProgress = computed(() => {
-  if (!divisions.value.length) return 0
-  return Math.round(divisions.value.reduce((s, d) => s + d.avgProgress, 0) / divisions.value.length)
+// 非 admin/executive 固定只能看自己本部，不得切換
+const canSwitchDivision = computed(() => auth.isAdmin || auth.isExecutive)
+const myDivisionName = computed(() => {
+  if (!auth.user?.divisionId) return null
+  return allDivisions.value.find(d => d.id === auth.user.divisionId)?.name || null
 })
+// 依所選本部過濾 divisions 清單
+const filteredDivisions = computed(() => {
+  if (selectedDivisionId.value) return divisions.value.filter(d => d.name === allDivisions.value.find(x => x.id === selectedDivisionId.value)?.name)
+  return divisions.value
+})
+
+// 直接使用後端計算的所有場景直接平均（與 Weekly Tracking 一致）
+const avgProgress = computed(() => kpi.value.avgProgress ?? 0)
 
 const headcountReleaseRate = computed(() => {
   const total = efficiencyGains.value.reduce((s, r) => s + r.originalHeadcount, 0)
@@ -269,7 +298,7 @@ const divisionPieOption = computed(() => ({
   legend: { orient: 'vertical', right: 0, top: 'center', textStyle: { fontSize: 11 } },
   series: [{
     type: 'pie', radius: ['40%', '70%'],
-    data: divisions.value.filter(d => d.total > 0).map(d => ({ name: d.name, value: d.total })),
+    data: filteredDivisions.value.filter(d => d.total > 0).map(d => ({ name: d.name, value: d.total })),
     label: { show: true, formatter: '{b}\n{c}個' },
     emphasis: { label: { show: true } },
     emphasis: { itemStyle: { shadowBlur: 10 } },
@@ -347,7 +376,19 @@ async function load() {
   }
 }
 
-onMounted(load)
+onMounted(async () => {
+  // 載入本部清單供切換
+  try {
+    const r = await divisionsApi.list()
+    allDivisions.value = r.data
+  } catch {}
+
+  // chief / manager 自動鎖定自己的本部
+  if (!auth.isAdmin && !auth.isExecutive && auth.user?.divisionId) {
+    selectedDivisionId.value = auth.user.divisionId
+  }
+  await load()
+})
 </script>
 
 <style scoped>

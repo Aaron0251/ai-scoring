@@ -533,6 +533,34 @@
           </el-card>
         </el-tab-pane>
 
+        <!-- ── Tab 4：進度歷程 ── -->
+        <el-tab-pane label="進度歷程" name="tab4">
+          <el-card shadow="hover">
+            <template #header>
+              <span style="font-weight:600;font-size:14px">📈 進度變化趨勢</span>
+            </template>
+            <div v-if="progressHistory.length === 0" style="text-align:center;padding:40px 0">
+              <el-empty description="尚無進度歷程記錄" />
+            </div>
+            <template v-else>
+              <v-chart :option="progressChartOption" style="height:300px" autoresize />
+              <el-divider />
+              <el-table :data="progressHistory" size="small" stripe max-height="300">
+                <el-table-column label="變更時間" width="160" align="center">
+                  <template #default="{row}">{{ row.changedAt?.substring(0,16).replace('T',' ') }}</template>
+                </el-table-column>
+                <el-table-column label="進度" width="80" align="center">
+                  <template #default="{row}">
+                    <el-tag type="primary" size="small">{{ row.progressValue }}%</el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="changedBy" label="變更者" width="100" align="center" />
+                <el-table-column prop="remarks" label="備註" min-width="200" show-overflow-tooltip />
+              </el-table>
+            </template>
+          </el-card>
+        </el-tab-pane>
+
       </el-tabs>
 
       <!-- 執行日誌編輯 Dialog -->
@@ -572,7 +600,13 @@
 import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { scenesApi, sectionsApi, deptPersonsApi, divisionsApi, departmentsApi, executionLogsApi, actualSavingsApi } from '../api/index.js'
+import api, { scenesApi, sectionsApi, deptPersonsApi, divisionsApi, departmentsApi, executionLogsApi, actualSavingsApi } from '../api/index.js'
+import { use } from 'echarts/core'
+import { CanvasRenderer } from 'echarts/renderers'
+import { LineChart } from 'echarts/charts'
+import { GridComponent, TooltipComponent, MarkLineComponent } from 'echarts/components'
+import VChart from 'vue-echarts'
+use([CanvasRenderer, LineChart, GridComponent, TooltipComponent, MarkLineComponent])
 
 const MONTHS = [
   { key: 'jan', label: '一月' }, { key: 'feb', label: '二月' }, { key: 'mar', label: '三月' },
@@ -660,6 +694,11 @@ const filteredDepts = computed(() =>
   form.divisionId ? allDepartments.value.filter(d => d.divisionId === form.divisionId) : []
 )
 const estimatedSavedHours = computed(() => {
+  // 非編輯模式：優先使用 savingHoursMonthly（匯入時直接填入的預估節省時數）
+  if (!editing.value && scene.value?.savingHoursMonthly != null) {
+    return scene.value.savingHoursMonthly
+  }
+  // 編輯模式或 savingHoursMonthly 無值：用 originalHours - improvedHours 計算
   const orig = editing.value ? autoOriginalHours.value : scene.value?.originalHours
   const imp  = editing.value ? form.improvedHours : scene.value?.improvedHours
   if (orig == null || imp == null) return null
@@ -930,9 +969,44 @@ function logStatusType(s) {
   return { '完成': 'success', '進行中': 'primary', '暫停': 'warning', '待辦': 'info' }[s] || ''
 }
 
-// 切換到 tab5 時載入日誌
+// ── 進度歷程 ──────────────────────────────────
+const progressHistory = ref([])
+
+async function loadProgressHistory() {
+  try {
+    const { data } = await api.get(`/scenes/${route.params.id}/progress-history`)
+    progressHistory.value = data
+  } catch {}
+}
+
+const progressChartOption = computed(() => {
+  const history = progressHistory.value
+  const dates = history.map(h => h.changedAt?.substring(0, 10))
+  const values = history.map(h => h.progressValue)
+  return {
+    tooltip: { trigger: 'axis', formatter: (p) => `${p[0].axisValue}<br>進度：${p[0].value}%` },
+    grid: { left: 50, right: 20, top: 30, bottom: 40 },
+    xAxis: { type: 'category', data: dates, axisLabel: { rotate: 30, fontSize: 11 } },
+    yAxis: { type: 'value', min: 0, max: 100, axisLabel: { formatter: '{value}%' } },
+    series: [{
+      type: 'line',
+      data: values,
+      smooth: true,
+      symbol: 'circle',
+      symbolSize: 8,
+      lineStyle: { color: '#409eff', width: 2 },
+      itemStyle: { color: '#409eff' },
+      areaStyle: { color: 'rgba(64,158,255,0.15)' },
+      markLine: {
+        silent: true,
+        data: [{ yAxis: 100, lineStyle: { color: '#67c23a', type: 'dashed' }, label: { formatter: '完成線' } }],
+      },
+    }],
+  }
+})
+
 watch(activeTab, (val) => {
-  if (val === 'tab5') loadLogs()
+  if (val === 'tab4') loadProgressHistory()
 })
 </script>
 

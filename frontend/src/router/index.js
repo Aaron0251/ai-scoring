@@ -1,4 +1,4 @@
-import { createRouter, createWebHistory } from 'vue-router'
+﻿import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '../stores/auth.js'
 
 const router = createRouter({
@@ -76,6 +76,20 @@ const router = createRouter({
       name: 'leader-scene-detail',
       component: () => import('../views/LeaderSceneDetailView.vue'),
       meta: { featureKey: 'leader-tracking' },
+    },
+    // ── 個人 ────────────────────────────────────
+    {
+      path: '/leader-tracking/scene/:id',
+      name: 'leader-scene-detail',
+      component: () => import('../views/LeaderSceneDetailView.vue'),
+      meta: { featureKey: 'leader-tracking' },
+    },
+    // ── 週進度追蹤 ─────────────────────────────
+    {
+      path: '/weekly-tracking',
+      name: 'weekly-tracking',
+      component: () => import('../views/WeeklyTrackingView.vue'),
+      meta: { featureKey: 'weekly-tracking' },
     },
     // ── 個人 ────────────────────────────────────
     {

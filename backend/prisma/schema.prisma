@@ -144,6 +144,7 @@ model Scene {
 
   originalHours        Float?     // 原總作業時數
   improvedHours        Float?     // 改善後總作業時數
+  savingHoursMonthly   Float?     // 預估節省時數（月）：直接填入值，優先於 originalHours-improvedHours
   originalHeadcount    Int?       // 原總作業人數
   improvedHeadcount    Int?       // 改善後總作業人數
   // efficiencyGainPct 為計算欄，由 API 動態回傳
@@ -163,6 +164,7 @@ model Scene {
   benefits            SceneBenefit[]
   executionLogs       SceneExecutionLog[]
   actualSavings       SceneActualSavings[]
+  progressHistories   SceneProgressHistory[]
 }
 
 model SceneActualSavings {
@@ -256,4 +258,22 @@ model ExcelImportLog {
   errors       String?  // JSON 字串
   status       String   // processing | done | failed
   createdAt    DateTime @default(now())
+}
+
+// ─────────────────────────────────────────────
+// 場景進度變動歷史
+// ─────────────────────────────────────────────
+
+model SceneProgressHistory {
+  id            Int      @id @default(autoincrement())
+  sceneId       Int
+  scene         Scene    @relation(fields: [sceneId], references: [id], onDelete: Cascade)
+  progressValue Int      // 進度百分比 0-100
+  changedAt     DateTime // 變更時間戳
+  changedBy     String?  // 變更者帳號
+  remarks       String?  // 備註（可選）
+  createdAt     DateTime @default(now())
+  
+  @@index([sceneId])
+  @@index([changedAt])
 }
