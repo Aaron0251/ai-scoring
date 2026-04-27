@@ -124,13 +124,13 @@
           >
             <el-table-column prop="row" label="行號" width="70" sortable />
             <el-table-column prop="error" label="說明" show-overflow-tooltip />
-            <el-table-column prop="level" label="類型" width="70">
+            <el-table-column prop="level" label="類型" width="80">
               <template #default="{ row }">
                 <el-tag
-                  :type="row.level === 'warn' ? 'warning' : 'danger'"
+                  :type="row.level === 'info' ? 'success' : row.level === 'warn' ? 'warning' : 'danger'"
                   size="small"
                 >
-                  {{ row.level === 'warn' ? '⚠️ 警告' : '❌ 錯誤' }}
+                  {{ row.level === 'info' ? 'ℹ️ 資訊' : row.level === 'warn' ? '⚠️ 警告' : '❌ 錯誤' }}
                 </el-tag>
               </template>
             </el-table-column>

@@ -335,51 +335,67 @@ function kanbanScenes(status) {
   return scenes.value.filter(s => s.status === status)
 }
 
-// ── 匯出選取 ────────────────────────────────────
+// ── 匯出選取（欄位與匯入範本完全一致，可直接修改後再匯入）────
 function exportSelected() {
-  const rows = selectedScenes.value.map(s => ({
-    '場景編號': s.itemNo || '',
-    '場景名稱': s.sceneName || '',
-    '是否由資訊協助完成': s.itAssisted === true ? '是' : s.itAssisted === false ? '否' : '',
-    '本部': s.department?.division?.name || '',
-    '部門': s.department?.name || '',
-    '課別': s.section?.name || '',
-    '維持/開發/作廢': s.maintainOrDevelop || '',
-    '開發方式': s.developMethod || '',
-    'AI Agent 用途分類': s.agentCategory || '',
-    '開發工具說明': s.developToolDesc || '',
-    '任務負責人': s.taskOwners || '',
-    '種子負責人': s.seedOwners || '',
-    '常見問項/希望AI處理什麼': s.inputDesc || '',
-    '預期輸出成果': s.outputDesc || '',
-    '任務步驟或處理邏輯': s.taskSteps || '',
-    '原始資料範例說明': s.rawDataExample || '',
-    '最終資料範例說明': s.finalDataExample || '',
-    '每次執行耗費時間': s.timePerExecution || '',
-    '執行頻率': s.monthlyFrequency || '',
-    '有需求的人數': s.demandCount ?? '',
-    '優先序': s.priority || '',
-    '狀態': s.status || '',
-    '進度(%)': s.progress ?? '',
-    '成立日': s.establishDate?.substring(0, 10) || '',
-    '預計完成日': s.targetDate?.substring(0, 10) || '',
-    '上線日期時間': s.goLiveDate?.substring(0, 10) || '',
-    '原總作業時數': s.originalHours ?? '',
-    '改善後預估總作業時數': s.improvedHours ?? '',
-    '預估節省時數': s.savingHoursMonthly != null ? s.savingHoursMonthly : (s.originalHours != null && s.improvedHours != null) ? +(s.originalHours - s.improvedHours).toFixed(1) : '',
-    '原總作業人數': s.originalHeadcount ?? '',
-    '改善後總作業人數': s.improvedHeadcount ?? '',
-    '節省人數': (s.originalHeadcount != null && s.improvedHeadcount != null) ? s.originalHeadcount - s.improvedHeadcount : '',
-    '文字成效說明': s.resultText || '',
-    '上線實際成效說明': s.actualResultText || '',
-    '其他量化成效說明': s.otherMetrics || '',
-    '備註': s.note || '',
-    '最後日誌日期': s.lastLog?.logDate?.substring(0, 10) || '',
-    '最後日誌內容': s.lastLog?.content || '',
-  }))
-  const ws = XLSX.utils.json_to_sheet(rows)
+  // 欄位順序與 importController COL_MAP 完全對齊
+  const HEADERS = [
+    '場景編號', '場景名稱', '是否由資訊協助完成',
+    '本部', '部門', '課別',
+    '維持/開發/作廢', '預估節省時數(月)',
+    '開發方式', 'AI Agent 用途分類', '開發工具說明',
+    '任務負責人', '種子負責人',
+    '常見問項/希望AI處理什麼', '預期輸出成果', '任務步驟或處理邏輯',
+    '原始資料範例說明', '最終資料範例說明',
+    '每次執行耗費時間', '執行頻率', '有需求的人數',
+    '優先序', '狀態', '進度(%)',
+    '成立日', '預計完成日', '上線日期時間',
+    '改善後預估總作業時數', '原總作業人數', '改善後總作業人數',
+    '文字成效說明', '上線實際成效說明', '其他量化成效說明',
+    '備註',
+  ]
+
+  const dataRows = selectedScenes.value.map(s => [
+    s.itemNo || '',
+    s.sceneName || '',
+    s.itAssisted === true ? '是' : s.itAssisted === false ? '否' : '',
+    s.department?.division?.name || '',
+    s.department?.name || '',
+    s.section?.name || '',
+    s.maintainOrDevelop || '',
+    s.savingHoursMonthly ?? '',
+    s.developMethod || '',
+    s.agentCategory || '',
+    s.developToolDesc || '',
+    s.taskOwners || '',
+    s.seedOwners || '',
+    s.inputDesc || '',
+    s.outputDesc || '',
+    s.taskSteps || '',
+    s.rawDataExample || '',
+    s.finalDataExample || '',
+    s.timePerExecution || '',
+    s.monthlyFrequency || '',
+    s.demandCount ?? '',
+    s.priority || '',
+    s.status || '',
+    s.progress ?? '',
+    s.establishDate?.substring(0, 10) || '',
+    s.targetDate?.substring(0, 10) || '',
+    s.goLiveDate?.substring(0, 10) || '',
+    s.improvedHours ?? '',
+    s.originalHeadcount ?? '',
+    s.improvedHeadcount ?? '',
+    s.resultText || '',
+    s.actualResultText || '',
+    s.otherMetrics || '',
+    s.note || '',
+  ])
+
+  const ws = XLSX.utils.aoa_to_sheet([HEADERS, ...dataRows])
+  // 欄寬設定
+  ws['!cols'] = [10,30,12,14,14,10,12,10,16,20,14,10,10,30,30,30,20,20,14,14,8,6,8,6,12,12,12,14,8,8,24,24,18,18].map(w => ({ wch: w }))
   const wb = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(wb, ws, '場景資料')
+  XLSX.utils.book_append_sheet(wb, ws, '場景匯入資料')
   XLSX.writeFile(wb, `場景匯出_${new Date().toISOString().substring(0,10)}.xlsx`)
 }
 

@@ -140,7 +140,7 @@
               <div class="rank-badge" :class="`rank-${idx + 1}`">{{ idx + 1 }}</div>
               <div class="project-info">
                 <div class="project-name">{{ item.sceneName }}</div>
-                <div class="project-value">節省 {{ Math.round(item.improvedHours ? item.originalHours - item.improvedHours : 0) }}h</div>
+                <div class="project-value">節省 {{ item.savings?.toFixed(1) ?? 0 }}h</div>
               </div>
             </div>
           </div>
@@ -330,15 +330,8 @@ const filteredSections = computed(() => {
   return sections.value.filter(s => s.departmentId === filters.department)
 })
 
-const topProjects = computed(() => {
-  return (data.value.weeklyProgressItems || [])
-    .map(item => ({
-      ...item,
-      savings: item.improvedHours ? item.originalHours - item.improvedHours : 0,
-    }))
-    .sort((a, b) => b.savings - a.savings)
-    .slice(0, 5)
-})
+// Top 5 直接使用後端計算好的（含 savingHoursMonthly，來自全部場景）
+const topProjects = computed(() => data.value.topSavings || [])
 
 // ── 方法 ─────────────────────────────────────────────────────────
 function formatDate(date) {

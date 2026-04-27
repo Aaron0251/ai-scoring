@@ -393,12 +393,26 @@ exports.importExcel = async (req, res) => {
             // 使用 PATCH 資料：只更新 Excel 中有填值的欄位，空白欄位保留資料庫原值
             const updatedFieldCount = Object.keys(sceneDataPatch).length;
             if (updatedFieldCount === 0) {
-              errors.push({ row: rowNum, error: `場景編號「${providedItemNo}」無任何欄位異動，略過`, level: 'warn' });
+              errors.push({ row: rowNum, error: `場景編號「${providedItemNo}」無任何欄位異動，略過`, level: 'info' });
               continue;
             }
-            await prisma.scene.update({ where: { itemNo: providedItemNo }, data: sceneDataPatch });
+            const updatedScene = await prisma.scene.update({ where: { itemNo: providedItemNo }, data: sceneDataPatch });
             sceneByName.set(sceneName, { ...existing, ...sceneDataPatch });
-            errors.push({ row: rowNum, error: `已更新 ${updatedFieldCount} 個欄位（${providedItemNo}）`, level: 'warn' });
+
+            // 進度有變動時，寫入進度歷史（供週追蹤使用）
+            if (sceneDataPatch.progress !== undefined && existing.progress !== sceneDataPatch.progress) {
+              await prisma.sceneProgressHistory.create({
+                data: {
+                  sceneId: updatedScene.id,
+                  progressValue: sceneDataPatch.progress,
+                  changedAt: new Date(),
+                  changedBy: req.user?.username || 'import',
+                  remarks: `Excel 匯入更新（${providedItemNo}）`,
+                },
+              });
+            }
+
+            errors.push({ row: rowNum, error: `已更新 ${updatedFieldCount} 個欄位（${providedItemNo}）`, level: 'info' });
             updatedCount++;
           } else {
             const created = await prisma.scene.create({ data: { itemNo: providedItemNo, ...sceneDataFull } });

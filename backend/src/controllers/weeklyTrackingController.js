@@ -101,9 +101,11 @@ exports.getWeeklyTracking = async (req, res) => {
     const scenes = await getScenesWithFilter(divisionId, departmentId, sectionId);
     const kpis = calculateSceneKPIs(scenes);
 
-    const activeScenes = scenes.filter(s => !['已完成', '暫停'].includes(s.status));
+    // 本週進度變動：包含所有場景（含已完成），讓本週剛完成的也能顯示
+    // 停滯預警：只看進行中/規劃中，排除已完成與暫停
+    const stagnationScenes = scenes.filter(s => !['已完成', '暫停'].includes(s.status));
 
-    if (activeScenes.length === 0) {
+    if (scenes.length === 0) {
       return res.json({
         week: `${formatDate(currentStart)} ~ ${formatDate(currentEnd)}`,
         previousWeek: `${formatDate(prevStart)} ~ ${formatDate(prevEnd)}`,
@@ -111,8 +113,8 @@ exports.getWeeklyTracking = async (req, res) => {
       });
     }
 
-    // 一次性預載所有相關場景的進度歷史，避免 N+1 查詢
-    const sceneIds = activeScenes.map(s => s.id);
+    // 一次性預載所有場景的進度歷史
+    const sceneIds = scenes.map(s => s.id);
     const allHistories = await prisma.sceneProgressHistory.findMany({
       where: { sceneId: { in: sceneIds }, changedAt: { gte: threeWeeksAgo } },
       orderBy: { changedAt: 'desc' },
@@ -128,7 +130,8 @@ exports.getWeeklyTracking = async (req, res) => {
     const weeklyProgressItems = [];
     const stagnatedScenes = [];
 
-    for (const scene of activeScenes) {
+    // ── 本週進度變動（含已完成）────────────────────────────
+    for (const scene of scenes) {
       const histories = historiesByScene[scene.id] || [];
 
       // 本週有進度變化的記錄
@@ -160,6 +163,11 @@ exports.getWeeklyTracking = async (req, res) => {
           section: scene.section?.name,
         });
       }
+    }
+
+    // ── 停滯偵測（只看進行中/規劃中，排除已完成與暫停）────
+    for (const scene of stagnationScenes) {
+      const histories = historiesByScene[scene.id] || [];
 
       // 停滯偵測：最近 3 週都沒有進度記錄，或進度未動
       const hasRecentChange = histories.length > 0 && histories[0].progressValue !== scene.progress;
@@ -197,12 +205,28 @@ exports.getWeeklyTracking = async (req, res) => {
       }
     }
 
+    // Top 5 節省時數（全部場景，savingHoursMonthly 優先）
+    const topSavings = scenes
+      .map(s => ({
+        sceneId: s.id,
+        itemNo: s.itemNo,
+        sceneName: s.sceneName,
+        status: s.status,
+        priority: s.priority,
+        savings: s.savingHoursMonthly != null
+          ? s.savingHoursMonthly
+          : Math.max(0, (s.originalHours || 0) - (s.improvedHours || 0)),
+      }))
+      .sort((a, b) => b.savings - a.savings)
+      .slice(0, 5);
+
     res.json({
       week: `${formatDate(currentStart)} ~ ${formatDate(currentEnd)}`,
       previousWeek: `${formatDate(prevStart)} ~ ${formatDate(prevEnd)}`,
       kpis,
       weeklyProgressItems: weeklyProgressItems.sort((a, b) => b.changePercent - a.changePercent),
       stagnatedScenes,
+      topSavings,
     });
   } catch (err) {
     console.error('[Weekly Tracking Error]', err);
