@@ -95,13 +95,27 @@ ls -lh ~/restore-job/
 # ── 3. Cloud Build 建置並推送映像
 echo ""
 echo "▶ [3/5] Cloud Build 建置映像（SQL 燒進映像，約 2~3 分鐘）..."
+# 以非同步方式提交，避免 VPC-SC 限制日誌串流造成腳本中斷
 gcloud builds submit \
   --tag "${IMAGE}" \
   --project "${PROJECT_ID}" \
   --timeout=300s \
-  .
+  . 2>&1 || echo "  (日誌串流受限，繼續等待映像建置...)"
 
-echo "  映像推送完成：${IMAGE}"
+echo "  等待映像出現於 Artifact Registry（最多 5 分鐘）..."
+for i in $(seq 1 20); do
+  if gcloud artifacts docker images describe "${IMAGE}" \
+       --project "${PROJECT_ID}" >/dev/null 2>&1; then
+    echo "  ✓ 映像已就緒"
+    break
+  fi
+  if [ "$i" -eq 20 ]; then
+    echo "✗ 超時！請至 Cloud Console 確認 Cloud Build 狀態"
+    exit 1
+  fi
+  echo "  等待中... (${i}/20，15 秒一次)"
+  sleep 15
+done
 
 # ── 4. 建立 Cloud Run Job
 echo ""
