@@ -1,0 +1,1 @@
+var e={ADMIN:`admin`,MANAGER:`manager`,CHIEF:`chief`,EXECUTIVE:`executive`},t=[e.ADMIN,e.MANAGER,e.CHIEF,e.EXECUTIVE],n={[e.ADMIN]:`系統管理員`,[e.MANAGER]:`種子負責人`,[e.CHIEF]:`主管`,[e.EXECUTIVE]:`公司管理層`};function r(e){return n[e]||e}export{t as n,r,n as t};
