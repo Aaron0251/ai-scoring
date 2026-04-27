@@ -10,8 +10,11 @@ npm install
 echo "▶ 建置前端 (production)..."
 npm run build
 
+echo "▶ 安裝 Firebase CLI..."
+npm install -g firebase-tools
+
 echo "▶ 部署到 Firebase Hosting..."
-npx firebase deploy --only hosting --project vertex-ai-491502
+firebase deploy --only hosting --project vertex-ai-491502
 
 echo ""
 echo "✓ 前端部署完成！"
