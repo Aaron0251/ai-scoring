@@ -31,16 +31,39 @@ def main():
     print("▶ 取得 gcloud access token...")
     token = get_token()
     headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
-    base = f"https://firebasehosting.googleapis.com/v1beta1/sites/{SITE_ID}"
+
+    print("▶ 查詢 Firebase Hosting 站台...")
+    r = requests.get(
+        f"https://firebasehosting.googleapis.com/v1beta1/projects/{SITE_ID}/sites",
+        headers=headers
+    )
+    if r.status_code == 200:
+        sites = r.json().get("sites", [])
+        print(f"  找到 {len(sites)} 個站台:")
+        for s in sites:
+            print(f"    - {s.get('name')} (defaultUrl: {s.get('defaultUrl','')})")
+        if sites:
+            # Use first site's name (last segment)
+            site_name = sites[0]["name"].split("/")[-1]
+            print(f"  使用站台: {site_name}")
+        else:
+            site_name = SITE_ID
+    else:
+        print(f"  無法取得站台列表({r.status_code}): {r.text[:200]}")
+        site_name = SITE_ID
+
+    base = f"https://firebasehosting.googleapis.com/v1beta1/sites/{site_name}"
 
     print("▶ 建立新版本...")
-    resp = requests.post(f"{base}/versions", headers=headers, json={
+    resp = requests.post(f"{base}/versions", headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"}, json={
         "config": {
             "headers": [{"glob": "**", "headers": {"Cache-Control": "max-age=3600"}}],
             "rewrites": [{"glob": "**", "path": "/index.html"}]
         }
     })
-    resp.raise_for_status()
+    if not resp.ok:
+        print(f"  建立版本失敗({resp.status_code}): {resp.text[:500]}")
+        sys.exit(1)
     version_name = resp.json()["name"]
     version_id = version_name.split("/")[-1]
     print(f"  版本 ID: {version_id}")
