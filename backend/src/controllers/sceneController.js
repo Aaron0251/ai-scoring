@@ -17,6 +17,7 @@ async function getAccessibleDeptIds(user) {
   if (!isManager && !isChief) return [];
 
   if (user.divisionId) {
+    // 有 divisionId → 可看整個本部底下所有部門
     const depts = await prisma.department.findMany({
       where: { divisionId: user.divisionId },
       select: { id: true },
@@ -24,7 +25,10 @@ async function getAccessibleDeptIds(user) {
     return depts.map(d => d.id);
   }
 
-  // manager 沒有 divisionId 則無存取權
+  // 沒有 divisionId 但有 departmentId → 只看自己所屬部門
+  if (user.departmentId) return [user.departmentId];
+
+  // manager 沒有任何組織指定 → 無存取權
   if (isManager && !isChief) return [];
 
   // chief 沒有 divisionId → 依 orgChief 指派決定

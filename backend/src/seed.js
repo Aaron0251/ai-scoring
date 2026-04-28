@@ -77,6 +77,7 @@ async function main() {
       password: await pw('manager1234'),
       name: '管理者一',
       roles: JSON.stringify(['manager']),
+      divisionId: divAdmin.id,
       departmentId: deptAdmin.id,
     },
     {
