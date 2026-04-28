@@ -58,6 +58,8 @@
           <el-menu-item v-if="auth.hasFeature('admin-role-permissions')" index="/admin/role-permissions">角色功能設定</el-menu-item>
         </el-sub-menu>
       </el-menu>
+      <!-- 版本標記 -->
+      <div class="version-tag">v2.1.2 · 2026-04-28</div>
     </el-aside>
 
     <!-- 主區域 -->
@@ -230,6 +232,16 @@ function handleCommand(cmd) {
   color: #fff !important;
 }
 .side-menu :deep(.el-sub-menu__icon-arrow) { color: #64748b; }
+
+/* 版本標記 */
+.version-tag {
+  padding: 10px 20px;
+  font-size: 11px;
+  color: #475569;
+  border-top: 1px solid rgba(255,255,255,.07);
+  text-align: center;
+  letter-spacing: .3px;
+}
 
 /* ── 頂部欄 ── */
 .topbar {
