@@ -1,54 +1,5 @@
 const prisma = require('../prisma');
-
-// ── 共用：解析使用者可存取的部門 ID 清單 ────────────────────
-// 回傳 null 表示無限制（admin/boss/executive）
-// 回傳 [] 表示無任何存取權
-// 回傳 number[] 表示允許的部門 ID 清單
-async function getAccessibleDeptIds(user) {
-  const { roles } = user;
-
-  if (roles.includes('admin') || roles.includes('boss') || roles.includes('executive')) {
-    return null;
-  }
-
-  const isManager = roles.includes('manager');
-  const isChief   = roles.includes('chief');
-
-  if (!isManager && !isChief) return [];
-
-  if (user.divisionId) {
-    // 有 divisionId → 可看整個本部底下所有部門
-    const depts = await prisma.department.findMany({
-      where: { divisionId: user.divisionId },
-      select: { id: true },
-    });
-    return depts.map(d => d.id);
-  }
-
-  // 沒有 divisionId 但有 departmentId → 只看自己所屬部門
-  if (user.departmentId) return [user.departmentId];
-
-  // manager 沒有任何組織指定 → 無存取權
-  if (isManager && !isChief) return [];
-
-  // chief 沒有 divisionId → 依 orgChief 指派決定
-  const orgChiefs = await prisma.orgChief.findMany({ where: { userId: user.id } });
-  if (orgChiefs.length === 0) return [];
-
-  const deptSet = new Set();
-  for (const oc of orgChiefs) {
-    if (oc.entityType === 'division') {
-      const depts = await prisma.department.findMany({ where: { divisionId: oc.entityId }, select: { id: true } });
-      depts.forEach(d => deptSet.add(d.id));
-    } else if (oc.entityType === 'department') {
-      deptSet.add(oc.entityId);
-    } else if (oc.entityType === 'section') {
-      const sec = await prisma.section.findUnique({ where: { id: oc.entityId }, select: { departmentId: true } });
-      if (sec) deptSet.add(sec.departmentId);
-    }
-  }
-  return [...deptSet];
-}
+const { getAccessibleDeptIds } = require('../utils/accessControl');
 
 // ── 輔助：判斷使用者能否存取特定場景 ──────────────────────
 async function canAccessScene(sceneId, user) {
@@ -67,14 +18,23 @@ exports.getAll = async (req, res) => {
   const { departmentId, sectionId, divisionId, status, priority, keyword, active } = req.query;
 
   const allowedDeptIds = await getAccessibleDeptIds(req.user);
-  if (Array.isArray(allowedDeptIds) && allowedDeptIds.length === 0) return res.json([]);
+  // allowedDeptIds === null  → 無限制（看全部）
+  // allowedDeptIds = array   → 限制在這些部門
 
   const where = {};
   if (allowedDeptIds !== null) where.departmentId = { in: allowedDeptIds };
 
-  if (divisionId && allowedDeptIds === null) {
-    const depts = await prisma.department.findMany({ where: { divisionId: parseInt(divisionId) }, select: { id: true } });
-    where.departmentId = { in: depts.map(d => d.id) };
+  // divisionId 篩選：取出該本部的部門，再與 allowedDeptIds 取交集
+  if (divisionId) {
+    const divDepts = await prisma.department.findMany({
+      where: { divisionId: parseInt(divisionId) },
+      select: { id: true },
+    });
+    const divDeptIds = divDepts.map(d => d.id);
+    const effectiveIds = allowedDeptIds !== null
+      ? divDeptIds.filter(id => allowedDeptIds.includes(id))
+      : divDeptIds;
+    where.departmentId = { in: effectiveIds };
   }
 
   if (departmentId) {

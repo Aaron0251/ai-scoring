@@ -1,0 +1,5 @@
+NODE_ENV: "production"
+JWT_SECRET: "ai-scoring-jwt-secret-fme-2026"
+DATABASE_URL: "postgresql://postgres:P%40ssw0rd%232026@localhost/postgres?host=/cloudsql/vertex-ai-491502:asia-east1:pg-instance"
+DIRECT_URL: "postgresql://postgres:P%40ssw0rd%232026@localhost/postgres?host=/cloudsql/vertex-ai-491502:asia-east1:pg-instance"
+FRONTEND_URL: "https://vertex-ai-491502.web.app,https://vertex-ai-491502.firebaseapp.com"

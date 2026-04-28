@@ -1,35 +1,16 @@
 const prisma = require('../prisma');
-
-// ── 輔助：判斷當前使用者可以查看哪些 divisionId ──────────────
-async function getAllowedDivisionIds(user) {
-  const roles = user.roles;
-  // admin / executive / chief → 全部本部
-  if (roles.includes('admin') || roles.includes('executive') || roles.includes('chief')) {
-    return null; // null 代表不限制
-  }
-  // manager → 只能看自己的本部
-  if (roles.includes('manager')) {
-    if (user.divisionId) return [user.divisionId];
-    return [];
-  }
-  return [];
-}
+const { getAccessibleDeptIds } = require('../utils/accessControl');
 
 // GET /api/leader-tracking
 // 從場景的 seedOwners 欄位取出所有種子負責人，依姓名分組
 exports.getLeaders = async (req, res) => {
   try {
-    const allowedDivIds = await getAllowedDivisionIds(req.user);
+    const allowedDeptIds = await getAccessibleDeptIds(req.user);
 
     // 依權限取得場景
-    let sceneWhere = { active: true };
-    if (allowedDivIds !== null) {
-      if (allowedDivIds.length === 0) return res.json([]);
-      const allDepts = await prisma.department.findMany({
-        where: { divisionId: { in: allowedDivIds } },
-        select: { id: true },
-      });
-      sceneWhere.departmentId = { in: allDepts.map(d => d.id) };
+    const sceneWhere = { active: true };
+    if (allowedDeptIds !== null) {
+      sceneWhere.departmentId = { in: allowedDeptIds };
     }
 
     const allScenes = await prisma.scene.findMany({
@@ -97,7 +78,7 @@ exports.getLeaders = async (req, res) => {
 exports.getLeaderScenes = async (req, res) => {
   try {
     const userId = parseInt(req.params.userId);
-    const allowedDivIds = await getAllowedDivisionIds(req.user);
+    const allowedDeptIds = await getAccessibleDeptIds(req.user);
 
     const targetUser = await prisma.user.findUnique({
       where: { id: userId },
@@ -105,9 +86,9 @@ exports.getLeaderScenes = async (req, res) => {
     });
     if (!targetUser) return res.status(404).json({ error: '使用者不存在' });
 
-    // 權限檢查：manager 只能查自己本部的人
-    if (allowedDivIds !== null) {
-      if (!allowedDivIds.includes(targetUser.divisionId)) {
+    // 權限檢查：有限制的使用者只能查所屬單位的種子負責人
+    if (allowedDeptIds !== null && targetUser.departmentId) {
+      if (!allowedDeptIds.includes(targetUser.departmentId)) {
         return res.status(403).json({ error: '無權查看此種子負責人' });
       }
     }

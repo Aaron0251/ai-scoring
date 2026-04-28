@@ -1,4 +1,5 @@
 const prisma = require('../prisma');
+const { getAccessibleDeptIds } = require('../utils/accessControl');
 
 function getWeekRange(weekStartDate) {
   const start = new Date(weekStartDate);
@@ -85,14 +86,36 @@ function calculateSceneKPIs(scenes) {
 exports.getWeeklyTracking = async (req, res) => {
   try {
     const { division, department, section, week = formatDate(new Date()) } = req.query;
-    const divisionId   = division   ? parseInt(division)   : null;
-    const departmentId = department ? parseInt(department) : null;
-    const sectionId    = section    ? parseInt(section)    : null;
+    let divisionId   = division   ? parseInt(division)   : null;
+    let departmentId = department ? parseInt(department) : null;
+    let sectionId    = section    ? parseInt(section)    : null;
 
-    const userDivision = req.user.divisionId;
-    if (userDivision && divisionId && userDivision !== divisionId) {
-      return res.status(403).json({ error: '無權查看其他本部的數據' });
+    // ── 存取控制 ─────────────────────────────────────────────
+    const allowedDeptIds = await getAccessibleDeptIds(req.user);
+
+    if (allowedDeptIds !== null) {
+      // 使用者有限制
+      if (!divisionId && !departmentId && !sectionId) {
+        // 未指定篩選 → 自動套用使用者所屬單位
+        if (req.user.divisionId) {
+          divisionId = req.user.divisionId;
+        } else if (req.user.departmentId) {
+          departmentId = req.user.departmentId;
+        }
+      } else {
+        // 已指定篩選 → 驗證是否在允許範圍內
+        if (departmentId && !allowedDeptIds.includes(departmentId)) {
+          return res.status(403).json({ error: '無權查看該部門的數據' });
+        }
+        if (divisionId && req.user.divisionId && req.user.divisionId !== divisionId) {
+          return res.status(403).json({ error: '無權查看其他本部的數據' });
+        }
+        if (departmentId && req.user.departmentId && req.user.departmentId !== departmentId && !req.user.divisionId) {
+          return res.status(403).json({ error: '無權查看其他部門的數據' });
+        }
+      }
     }
+    // allowedDeptIds === null → 無限制，沿用 query 篩選或無篩選（看全部）
 
     const { currentStart, currentEnd, prevStart, prevEnd } = getWeekRange(week);
     const threeWeeksAgo = new Date(currentStart);

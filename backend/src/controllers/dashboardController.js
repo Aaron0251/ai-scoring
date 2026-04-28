@@ -1,4 +1,5 @@
 const prisma = require('../prisma');
+const { getAccessibleDeptIds } = require('../utils/accessControl');
 
 const MONTH_KEYS = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
 
@@ -26,17 +27,40 @@ function sumActualSavings(actualSavings) {
   }, 0);
 }
 
+/** 將 allowedDeptIds 轉為 Prisma scene WHERE 片段 */
+function sceneWhereByAccess(allowedDeptIds, extra = {}) {
+  const base = { ...extra };
+  if (allowedDeptIds !== null) base.departmentId = { in: allowedDeptIds };
+  return base;
+}
+
 exports.getStats = async (req, res) => {
   try {
+    let allowedDeptIds = await getAccessibleDeptIds(req.user);
+
+    // admin / executive 可透過 divisionId query 縮小範圍
+    const { divisionId } = req.query;
+    if (divisionId) {
+      const divDepts = await prisma.department.findMany({
+        where: { divisionId: parseInt(divisionId) },
+        select: { id: true },
+      });
+      const divDeptIds = divDepts.map(d => d.id);
+      // 與使用者本身的存取範圍取交集
+      allowedDeptIds = allowedDeptIds !== null
+        ? divDeptIds.filter(id => allowedDeptIds.includes(id))
+        : divDeptIds;
+    }
+
     const [kpi, divisions, pieData, efficiencyGains, top5, departmentDist, alertList, toolTreemap] = await Promise.all([
-      getKpiStats(),
-      getDivisionStats(),
-      getDevelopMethodPie(),
-      getEfficiencyGains(),
-      getTop5Scenes(),
-      getDepartmentDistribution(),
-      getAlertList(),
-      getToolTreemap(),
+      getKpiStats(allowedDeptIds),
+      getDivisionStats(allowedDeptIds),
+      getDevelopMethodPie(allowedDeptIds),
+      getEfficiencyGains(allowedDeptIds),
+      getTop5Scenes(allowedDeptIds),
+      getDepartmentDistribution(allowedDeptIds),
+      getAlertList(allowedDeptIds),
+      getToolTreemap(allowedDeptIds),
     ]);
     res.json({ kpi, divisions, pieData, efficiencyGains, top5, departmentDist, alertList, toolTreemap });
   } catch (e) {
@@ -47,12 +71,15 @@ exports.getStats = async (req, res) => {
 
 // 舊的 getStats（保留供相容）
 exports.getStatsLegacy = async (req, res) => {
-  const kpi = await getKpiStats();
+  const allowedDeptIds = await getAccessibleDeptIds(req.user);
+  const kpi = await getKpiStats(allowedDeptIds);
 
   // 各本部合計執行狀況
+  const deptWhere = allowedDeptIds !== null ? { id: { in: allowedDeptIds } } : {};
   const divisionStats = await prisma.division.findMany({
     include: {
       departments: {
+        where: deptWhere,
         include: {
           scenes: {
             where: { active: true, status: { not: '暫定' } },
@@ -64,26 +91,28 @@ exports.getStatsLegacy = async (req, res) => {
     orderBy: { name: 'asc' },
   });
 
-  const divisions = divisionStats.map(div => {
-    const allScenes = div.departments.flatMap(d => d.scenes);
-    const completedWithLive = allScenes.filter(s => s.status === '已完成' && s.goLiveDate);
-    const actualSavingsTotal = sumActualSavings(completedWithLive.flatMap(s => s.actualSavings));
-    const headcountSaved = completedWithLive.reduce((sum, s) => sum + ((s.originalHeadcount||0) - (s.improvedHeadcount||0)), 0);
-    return {
-      name: div.name,
-      total: allScenes.length,
-      completed: allScenes.filter(s => s.status === '已完成').length,
-      inProgress: allScenes.filter(s => s.status === '進行中').length,
-      estimatedSaved: allScenes.reduce((sum, s) => sum + ((s.originalHours||0) - (s.improvedHours||0)), 0),
-      actualSavingsTotal,
-      headcountSaved,
-    };
-  });
+  const divisions = divisionStats
+    .filter(div => div.departments.length > 0)
+    .map(div => {
+      const allScenes = div.departments.flatMap(d => d.scenes);
+      const completedWithLive = allScenes.filter(s => s.status === '已完成' && s.goLiveDate);
+      const actualSavingsTotal = sumActualSavings(completedWithLive.flatMap(s => s.actualSavings));
+      const headcountSaved = completedWithLive.reduce((sum, s) => sum + ((s.originalHeadcount||0) - (s.improvedHeadcount||0)), 0);
+      return {
+        name: div.name,
+        total: allScenes.length,
+        completed: allScenes.filter(s => s.status === '已完成').length,
+        inProgress: allScenes.filter(s => s.status === '進行中').length,
+        estimatedSaved: allScenes.reduce((sum, s) => sum + ((s.originalHours||0) - (s.improvedHours||0)), 0),
+        actualSavingsTotal,
+        headcountSaved,
+      };
+    });
 
   // 開發方式圓餅圖
   const methodCounts = await prisma.scene.groupBy({
     by: ['developMethod'],
-    where: { active: true },
+    where: sceneWhereByAccess(allowedDeptIds, { active: true }),
     _count: { id: true },
   });
   const pieData = methodCounts
@@ -95,10 +124,13 @@ exports.getStatsLegacy = async (req, res) => {
 
 exports.drilldown = async (req, res) => {
   const { level, id } = req.query;
+  const allowedDeptIds = await getAccessibleDeptIds(req.user);
 
   if (level === 'division') {
+    const deptWhere = { divisionId: parseInt(id) };
+    if (allowedDeptIds !== null) deptWhere.id = { in: allowedDeptIds };
     const departments = await prisma.department.findMany({
-      where: { divisionId: parseInt(id) },
+      where: deptWhere,
       include: { scenes: { where: { active: true }, select: { status: true, originalHours: true, improvedHours: true } } },
     });
     return res.json(departments.map(d => ({
@@ -111,6 +143,10 @@ exports.drilldown = async (req, res) => {
   }
 
   if (level === 'department') {
+    // Check access
+    if (allowedDeptIds !== null && !allowedDeptIds.includes(parseInt(id))) {
+      return res.status(403).json({ error: '無權存取此部門' });
+    }
     const sections = await prisma.section.findMany({
       where: { departmentId: parseInt(id) },
       include: { scenes: { where: { active: true }, select: { status: true, originalHours: true, improvedHours: true } } },
@@ -126,7 +162,7 @@ exports.drilldown = async (req, res) => {
 
   if (level === 'section') {
     const scenes = await prisma.scene.findMany({
-      where: { sectionId: parseInt(id), active: true },
+      where: sceneWhereByAccess(allowedDeptIds, { sectionId: parseInt(id), active: true }),
       orderBy: { itemNo: 'asc' },
       select: { id: true, itemNo: true, sceneName: true, status: true, priority: true, progress: true, originalHours: true, improvedHours: true },
     });
@@ -137,9 +173,13 @@ exports.drilldown = async (req, res) => {
 };
 
 exports.executionTable = async (req, res) => {
+  const allowedDeptIds = await getAccessibleDeptIds(req.user);
+  const deptWhere = allowedDeptIds !== null ? { id: { in: allowedDeptIds } } : {};
+
   const divisions = await prisma.division.findMany({
     include: {
       departments: {
+        where: deptWhere,
         include: {
           sections: {
             include: {
@@ -158,15 +198,18 @@ exports.executionTable = async (req, res) => {
     },
     orderBy: { name: 'asc' },
   });
-  res.json(divisions);
+  // 過濾掉無部門可顯示的本部
+  res.json(divisions.filter(div => div.departments.length > 0));
 };
 
 // ── 內部輔助 ──────────────────────────────────────────────
 
-async function getDivisionStats() {
+async function getDivisionStats(allowedDeptIds) {
+  const deptWhere = allowedDeptIds !== null ? { id: { in: allowedDeptIds } } : {};
   const divisionStats = await prisma.division.findMany({
     include: {
       departments: {
+        where: deptWhere,
         include: {
           scenes: {
             where: { active: true, status: { not: '暫定' } },
@@ -178,45 +221,46 @@ async function getDivisionStats() {
     orderBy: { name: 'asc' },
   });
   const today = new Date();
-  return divisionStats.map(div => {
-    const allScenes = div.departments.flatMap(d => d.scenes);
-    const completedWithLive = allScenes.filter(s => s.status === '已完成' && s.goLiveDate);
-    const actualSavingsTotal = sumActualSavings(completedWithLive.flatMap(s => s.actualSavings));
-    const headcountSaved = completedWithLive.reduce((sum, s) => sum + ((s.originalHeadcount||0) - (s.improvedHeadcount||0)), 0);
-    const avgProgress = allScenes.length > 0 ? Math.round(allScenes.reduce((s, x) => s + (x.progress || 0), 0) / allScenes.length) : 0;
-    // 115年年化節省時數（已上線依 goLiveDate，未上線依今天）
-    const estimatedSaved = allScenes.reduce((sum, s) => {
-      const monthly = sceneMonthly(s);
-      if (monthly <= 0) return sum;
-      const refDate = s.goLiveDate ? new Date(s.goLiveDate) : today;
-      return sum + monthly * monthsIn115(refDate);
-    }, 0);
-    return {
-      name: div.name,
-      total: allScenes.length,
-      completed: allScenes.filter(s => s.status === '已完成').length,
-      inProgress: allScenes.filter(s => s.status === '進行中').length,
-      planned: allScenes.filter(s => s.status === '規劃中').length,
-      estimatedSaved,
-      actualSavingsTotal,
-      headcountSaved,
-      avgProgress,
-    };
-  });
+  return divisionStats
+    .filter(div => div.departments.length > 0)
+    .map(div => {
+      const allScenes = div.departments.flatMap(d => d.scenes);
+      const completedWithLive = allScenes.filter(s => s.status === '已完成' && s.goLiveDate);
+      const actualSavingsTotal = sumActualSavings(completedWithLive.flatMap(s => s.actualSavings));
+      const headcountSaved = completedWithLive.reduce((sum, s) => sum + ((s.originalHeadcount||0) - (s.improvedHeadcount||0)), 0);
+      const avgProgress = allScenes.length > 0 ? Math.round(allScenes.reduce((s, x) => s + (x.progress || 0), 0) / allScenes.length) : 0;
+      const estimatedSaved = allScenes.reduce((sum, s) => {
+        const monthly = sceneMonthly(s);
+        if (monthly <= 0) return sum;
+        const refDate = s.goLiveDate ? new Date(s.goLiveDate) : today;
+        return sum + monthly * monthsIn115(refDate);
+      }, 0);
+      return {
+        name: div.name,
+        total: allScenes.length,
+        completed: allScenes.filter(s => s.status === '已完成').length,
+        inProgress: allScenes.filter(s => s.status === '進行中').length,
+        planned: allScenes.filter(s => s.status === '規劃中').length,
+        estimatedSaved,
+        actualSavingsTotal,
+        headcountSaved,
+        avgProgress,
+      };
+    });
 }
 
-async function getDevelopMethodPie() {
+async function getDevelopMethodPie(allowedDeptIds) {
   const methodCounts = await prisma.scene.groupBy({
     by: ['developMethod'],
-    where: { active: true, status: { not: '暫定' } },
+    where: sceneWhereByAccess(allowedDeptIds, { active: true, status: { not: '暫定' } }),
     _count: { id: true },
   });
   return methodCounts.filter(m => m.developMethod).map(m => ({ name: m.developMethod, value: m._count.id }));
 }
 
-async function getEfficiencyGains() {
+async function getEfficiencyGains(allowedDeptIds) {
   const scenes = await prisma.scene.findMany({
-    where: { active: true, status: { not: '暫定' } },
+    where: sceneWhereByAccess(allowedDeptIds, { active: true, status: { not: '暫定' } }),
     select: { id: true, itemNo: true, sceneName: true, originalHours: true, improvedHours: true, originalHeadcount: true, improvedHeadcount: true, priority: true, progress: true },
     orderBy: { itemNo: 'asc' },
     take: 30,
@@ -236,9 +280,9 @@ async function getEfficiencyGains() {
   }));
 }
 
-async function getTop5Scenes() {
+async function getTop5Scenes(allowedDeptIds) {
   const scenes = await prisma.scene.findMany({
-    where: { active: true, status: { not: '暫定' } },
+    where: sceneWhereByAccess(allowedDeptIds, { active: true, status: { not: '暫定' } }),
     select: { id: true, itemNo: true, sceneName: true, originalHours: true, improvedHours: true, originalHeadcount: true, improvedHeadcount: true, status: true, priority: true, progress: true },
     orderBy: { originalHours: 'desc' },
     take: 20,
@@ -258,10 +302,12 @@ async function getTop5Scenes() {
     .slice(0, 5);
 }
 
-async function getDepartmentDistribution() {
+async function getDepartmentDistribution(allowedDeptIds) {
+  const deptWhere = allowedDeptIds !== null ? { id: { in: allowedDeptIds } } : {};
   const divisions = await prisma.division.findMany({
     include: {
       departments: {
+        where: deptWhere,
         include: {
           scenes: {
             where: { active: true, status: { not: '暫定' } },
@@ -289,9 +335,10 @@ async function getDepartmentDistribution() {
   return result;
 }
 
-async function getAlertList() {
+async function getAlertList(allowedDeptIds) {
   const scenes = await prisma.scene.findMany({
     where: {
+      ...sceneWhereByAccess(allowedDeptIds),
       active: true,
       status: { not: '暫定' },
       OR: [
@@ -318,9 +365,9 @@ async function getAlertList() {
   }));
 }
 
-async function getToolTreemap() {
+async function getToolTreemap(allowedDeptIds) {
   const scenes = await prisma.scene.findMany({
-    where: { active: true, status: { not: '暫定' }, developToolDesc: { not: null } },
+    where: sceneWhereByAccess(allowedDeptIds, { active: true, status: { not: '暫定' }, developToolDesc: { not: null } }),
     select: { developToolDesc: true },
   });
   const toolCount = {};
@@ -336,11 +383,13 @@ async function getToolTreemap() {
     .map(([name, value]) => ({ name, value }));
 }
 
-async function getKpiStats() {
+async function getKpiStats(allowedDeptIds) {
+  const sceneWhere = sceneWhereByAccess(allowedDeptIds, { active: true });
+
   const [totalScenes, completedScenes, inProgressScenes, configs] = await Promise.all([
-    prisma.scene.count({ where: { active: true } }),
-    prisma.scene.count({ where: { active: true, status: '已完成' } }),
-    prisma.scene.count({ where: { active: true, status: '進行中' } }),
+    prisma.scene.count({ where: sceneWhere }),
+    prisma.scene.count({ where: { ...sceneWhere, status: '已完成' } }),
+    prisma.scene.count({ where: { ...sceneWhere, status: '進行中' } }),
     prisma.systemConfig.findMany(),
   ]);
 
@@ -349,17 +398,17 @@ async function getKpiStats() {
 
   // 年化節省時數 + 平均進度（全部場景一次查，避免多次 roundtrip）
   const allScenesForSaving = await prisma.scene.findMany({
-    where: { active: true },
+    where: sceneWhere,
     select: { originalHours: true, improvedHours: true, savingHoursMonthly: true, goLiveDate: true, progress: true },
   });
   const today = new Date();
 
-  // 平均進度：所有場景直接平均（與 Weekly Tracking 一致）
+  // 平均進度：所有場景直接平均
   const avgProgress = allScenesForSaving.length > 0
     ? Math.round(allScenesForSaving.reduce((s, x) => s + (x.progress || 0), 0) / allScenesForSaving.length)
     : 0;
 
-  // 預估月均：所有場景月均節省時數加總（原邏輯）
+  // 預估月均：所有場景月均節省時數加總
   const estimatedTimeSaved = allScenesForSaving.reduce((sum, s) => sum + sceneMonthly(s), 0);
 
   // 實際月均：僅已上線（有 goLiveDate）場景的月均加總
@@ -367,9 +416,7 @@ async function getKpiStats() {
     .filter(s => s.goLiveDate != null)
     .reduce((sum, s) => sum + sceneMonthly(s), 0);
 
-  // 115年年化節省時數：
-  //   已上線 → 依 goLiveDate 算出在115年內的月數
-  //   未上線 → 依今天到115年底的月數
+  // 115年年化節省時數
   const annualizedSaved115 = allScenesForSaving.reduce((sum, s) => {
     const monthly = sceneMonthly(s);
     if (monthly <= 0) return sum;
@@ -379,7 +426,7 @@ async function getKpiStats() {
 
   // 成效：狀態=已完成 且 有上線日期
   const effectiveScenes = await prisma.scene.findMany({
-    where: { active: true, status: '已完成', goLiveDate: { not: null } },
+    where: { ...sceneWhere, status: '已完成', goLiveDate: { not: null } },
     select: { originalHeadcount: true, improvedHeadcount: true, actualSavings: true },
   });
 
@@ -394,12 +441,11 @@ async function getKpiStats() {
     plannedScenes: totalScenes - completedScenes - inProgressScenes,
     targetScenes: parseInt(configMap.target_scenes || '100'),
     targetHours: parseInt(configMap.target_hours || '10000'),
-    avgProgress,          // 所有場景直接平均進度
-    estimatedTimeSaved,   // 預估月均（所有場景）
-    actualMonthlyAvg,     // 實際月均（已上線場景）
-    annualizedSaved115,   // 115年年化預估節省時數
+    avgProgress,
+    estimatedTimeSaved,
+    actualMonthlyAvg,
+    annualizedSaved115,
     completionRate: totalScenes > 0 ? Math.round((completedScenes / totalScenes) * 100) : 0,
-    // 成效區（完成+有上線日期）
     effectiveCount,
     actualTimeSavedTotal,
     headcountSaved,

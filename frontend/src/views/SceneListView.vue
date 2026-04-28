@@ -466,7 +466,7 @@ async function loadScenes() {
   loading.value = true
   try {
     const params = {}
-    if (auth.isAdmin && filterDivision.value) params.divisionId = filterDivision.value
+    if (filterDivision.value) params.divisionId = filterDivision.value
     if (filterDept.value) params.departmentId = filterDept.value
     if (filterSection.value) params.sectionId = filterSection.value
     if (filterStatus.value) params.status = filterStatus.value

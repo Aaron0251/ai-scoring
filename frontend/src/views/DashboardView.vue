@@ -261,11 +261,8 @@ const myDivisionName = computed(() => {
   if (!auth.user?.divisionId) return null
   return allDivisions.value.find(d => d.id === auth.user.divisionId)?.name || null
 })
-// 依所選本部過濾 divisions 清單
-const filteredDivisions = computed(() => {
-  if (selectedDivisionId.value) return divisions.value.filter(d => d.name === allDivisions.value.find(x => x.id === selectedDivisionId.value)?.name)
-  return divisions.value
-})
+// 後端已依 divisionId 過濾，直接顯示即可
+const filteredDivisions = computed(() => divisions.value)
 
 // 直接使用後端計算的所有場景直接平均（與 Weekly Tracking 一致）
 const avgProgress = computed(() => kpi.value.avgProgress ?? 0)
@@ -361,7 +358,9 @@ function statusType(s) {
 async function load() {
   loading.value = true
   try {
-    const res = await dashboardApi.summary()
+    const params = {}
+    if (selectedDivisionId.value) params.divisionId = selectedDivisionId.value
+    const res = await dashboardApi.summary(params)
     kpi.value = res.data.kpi || {}
     divisions.value = res.data.divisions || []
     pieData.value = res.data.pieData || []

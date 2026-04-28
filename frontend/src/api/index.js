@@ -131,7 +131,7 @@ export const configApi = {
 
 // ── Dashboard ─────────────────────────────────
 export const dashboardApi = {
-  summary: () => api.get('/dashboard'),
+  summary: (params) => api.get('/dashboard', { params }),
   drilldown: (params) => api.get('/dashboard/drilldown', { params }),
   executionTable: () => api.get('/dashboard/execution-table'),
 }

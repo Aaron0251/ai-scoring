@@ -27,7 +27,14 @@
       <template v-else>
         <!-- 搜尋篩選列 -->
         <div class="filter-bar">
-          <el-select v-model="filterDivision" placeholder="篩選本部（全部）" clearable class="division-select" @change="handleDivisionChange">
+          <el-select
+            v-model="filterDivision"
+            placeholder="篩選本部（全部）"
+            :clearable="!divisionLocked"
+            :disabled="divisionLocked"
+            class="division-select"
+            @change="handleDivisionChange"
+          >
             <el-option label="全部本部" value="" />
             <el-option
               v-for="div in divisionOptions"
@@ -158,11 +165,13 @@
 import { ref, computed, onMounted, onActivated } from 'vue'
 import { useRouter } from 'vue-router'
 import AppLayout from '../components/AppLayout.vue'
+import { useAuthStore } from '../stores/auth.js'
 import api from '../api/index.js'
 import { divisionsApi } from '../api/index.js'
 import { UserFilled, User, ArrowDown, ArrowRight, InfoFilled, Refresh } from '@element-plus/icons-vue'
 
 const router = useRouter()
+const authStore = useAuthStore()
 
 const leaders        = ref([])
 const loading        = ref(true)
@@ -171,6 +180,10 @@ const searchKeyword  = ref('')
 const filterDivision = ref('')
 const expandedLeaders = ref(new Set())
 const divisionOptions = ref([])
+
+// 使用者是否被限定在特定本部
+const userDivisionId   = computed(() => authStore.user?.divisionId ?? null)
+const divisionLocked   = computed(() => !!userDivisionId.value)
 
 // 種子負責人下拉選項（依本部篩選）
 const leaderOptions = computed(() => {
@@ -249,6 +262,12 @@ async function loadLeaders() {
     ])
     leaders.value = leadersRes.data
     divisionOptions.value = divsRes.data || []
+
+    // 若使用者被限定在特定本部，預帶本部篩選
+    if (userDivisionId.value) {
+      const matched = divisionOptions.value.find(d => d.id === userDivisionId.value)
+      if (matched) filterDivision.value = matched.name
+    }
   } catch (e) {
     error.value = e.response?.data?.error || '載入失敗，請重試'
   } finally {

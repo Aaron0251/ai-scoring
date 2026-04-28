@@ -23,7 +23,13 @@
         <el-col :xs="24" :sm="12" :md="6">
           <div class="filter-item">
             <label>本部</label>
-            <el-select v-model="filters.division" placeholder="選擇本部" @change="handleDivisionChange" clearable>
+            <el-select
+              v-model="filters.division"
+              placeholder="選擇本部"
+              @change="handleDivisionChange"
+              :clearable="!divisionLocked"
+              :disabled="divisionLocked"
+            >
               <el-option label="全部本部" :value="null" />
               <el-option v-for="d in divisions" :key="d.id" :label="d.name" :value="d.id" />
             </el-select>
@@ -113,8 +119,8 @@
       </el-row>
     </div>
 
-    <!-- 圖表區域 -->
-    <el-row :gutter="20" style="margin-bottom: 20px">
+    <!-- 圖表區域（暫時隱藏：節省時數分析各部門對比 & Top5） -->
+    <!-- <el-row :gutter="20" style="margin-bottom: 20px">
       <el-col :xs="24" :md="14">
         <el-card>
           <template #header>
@@ -146,7 +152,7 @@
           </div>
         </el-card>
       </el-col>
-    </el-row>
+    </el-row> -->
 
     <!-- 本週有進度更新的場景 -->
     <el-card style="margin-bottom: 20px">
@@ -279,12 +285,14 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowLeft, ArrowRight } from '@element-plus/icons-vue'
 import AppLayout from '@/components/AppLayout.vue'
+import { useAuthStore } from '@/stores/auth.js'
 import { divisionsApi, departmentsApi, sectionsApi } from '@/api/index.js'
 import api from '@/api/index.js'
 import * as echarts from 'echarts'
 import * as XLSX from 'xlsx'
 
 const router = useRouter()
+const authStore = useAuthStore()
 
 // ── 狀態 ────────────────────────────────────────────────────────
 const filters = reactive({
@@ -310,7 +318,13 @@ const newProgress = ref(0)
 const progressRemarks = ref('')
 
 const savingChartRef = ref(null)
-const isAdmin = computed(() => JSON.parse(sessionStorage.getItem('user') || '{}').roles?.includes('admin') ?? false)
+
+// 是否為無限制角色（admin / boss / executive）
+const isAdmin = computed(() => authStore.user?.roles?.includes('admin') ?? false)
+// 使用者是否被限定在特定本部
+const userDivisionId = computed(() => authStore.user?.divisionId ?? null)
+// 本部篩選是否鎖定（有指定本部的角色不可切換）
+const divisionLocked = computed(() => !!userDivisionId.value)
 
 // ── 計算屬性 ─────────────────────────────────────────────────────
 const weekDisplay = computed(() => {
@@ -559,6 +573,10 @@ async function loadOrganization() {
 // ── 生命週期 ─────────────────────────────────────────────────────
 onMounted(async () => {
   await loadOrganization()
+  // 若使用者有限定本部，預帶篩選條件
+  if (userDivisionId.value) {
+    filters.division = userDivisionId.value
+  }
   fetchWeeklyTracking()
 })
 </script>
