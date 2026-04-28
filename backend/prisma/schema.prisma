@@ -74,7 +74,7 @@ model DeptPerson {
 model User {
   id                 Int          @id @default(autoincrement())
   username           String       @unique
-  password           String
+  password           String?      // AD 帳號不存密碼，系統帳號才有值
   name               String
   roles              String       // JSON Array 字串，如 ["admin"] 或 ["evaluator","chief"]
   divisionId         Int?
