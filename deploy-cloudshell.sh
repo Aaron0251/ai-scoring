@@ -95,8 +95,8 @@ echo "▶ Step 4：建置前端..."
 cd ~/ai-scoring/frontend
 npm install
 
-# 寫入正式環境 API 網址
-echo "VITE_API_BASE_URL=${BACKEND_URL}/api" > .env.production
+# 寫入正式環境 API 網址（注意：api/index.js 會自動補 /api，此處不需加）
+echo "VITE_API_BASE_URL=${BACKEND_URL}" > .env.production
 cat .env.production
 
 npm run build

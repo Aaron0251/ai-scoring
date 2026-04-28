@@ -77,13 +77,6 @@ const router = createRouter({
       component: () => import('../views/LeaderSceneDetailView.vue'),
       meta: { featureKey: 'leader-tracking' },
     },
-    // ── 個人 ────────────────────────────────────
-    {
-      path: '/leader-tracking/scene/:id',
-      name: 'leader-scene-detail',
-      component: () => import('../views/LeaderSceneDetailView.vue'),
-      meta: { featureKey: 'leader-tracking' },
-    },
     // ── 週進度追蹤 ─────────────────────────────
     {
       path: '/weekly-tracking',

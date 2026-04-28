@@ -14,31 +14,31 @@ const FEATURES = [
     category: '主要功能',
     key: 'dashboard',
     label: '總覽',
-    defaultRoles: ['admin', 'manager', 'executive', 'chief'],
+    defaultRoles: ['admin', 'manager', 'executive', 'chief', 'boss'],
   },
   {
     category: '主要功能',
     key: 'scenes',
     label: '場景管理',
-    defaultRoles: ['admin', 'manager', 'executive', 'chief'],
+    defaultRoles: ['admin', 'manager', 'executive', 'chief', 'boss'],
   },
   {
     category: '主要功能',
     key: 'leader-tracking',
     label: '種子負責人場景追蹤',
-    defaultRoles: ['admin', 'manager', 'executive', 'chief'],
+    defaultRoles: ['admin', 'manager', 'executive', 'chief', 'boss'],
   },
   {
     category: '主要功能',
     key: 'weekly-tracking',
     label: '各本部週進度追蹤',
-    defaultRoles: ['admin', 'manager', 'executive', 'chief'],
+    defaultRoles: ['admin', 'manager', 'executive', 'chief', 'boss'],
   },
   {
     category: '主要功能',
     key: 'import',
     label: 'Excel 批次匯入',
-    defaultRoles: ['admin', 'manager', 'chief'],
+    defaultRoles: ['admin', 'manager', 'chief', 'boss'],
   },
   // ── 系統管理 ────────────────────────────────
   {

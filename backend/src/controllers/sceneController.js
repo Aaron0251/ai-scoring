@@ -222,8 +222,10 @@ async function generateItemNo() {
 }
 
 function calcEfficiencyGain(scene) {
-  if (scene.timeSavedHours && scene.actualTimeSavedHours) {
-    return Math.round(((scene.actualTimeSavedHours - scene.timeSavedHours) / scene.timeSavedHours) * 100 * 10) / 10;
+  const original = scene.originalHours ?? 0;
+  const improved = scene.improvedHours ?? 0;
+  if (original > 0) {
+    return Math.round(((original - improved) / original) * 100 * 10) / 10;
   }
   return null;
 }
