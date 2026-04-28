@@ -12,8 +12,15 @@ REGION="asia-east1"
 CONNECTION_NAME="vertex-ai-491502:asia-east1:pg-instance"   # 現有 Cloud SQL 執行個體
 DB_NAME="postgres"
 DB_USER="postgres"
-DB_PASSWORD='P@ssw0rd#2026'
-JWT_SECRET="ai-scoring-jwt-secret-key-2026-fme"             # 可自行修改
+
+# 載入機密設定（secrets.sh 不推上 GitHub）
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "$SCRIPT_DIR/secrets.sh" ]; then
+  source "$SCRIPT_DIR/secrets.sh"
+else
+  echo "❌ 找不到 secrets.sh，請依 secrets.example.sh 建立並填入密碼"
+  exit 1
+fi
 # ──────────────────────────────────────────────────────────
 
 echo "================================================"

@@ -7,6 +7,15 @@ set -e
 
 PROJECT_ID="vertex-ai-491502"
 REGION="asia-east1"
+
+# 載入機密設定（secrets.sh 不推上 GitHub）
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "$SCRIPT_DIR/secrets.sh" ]; then
+  source "$SCRIPT_DIR/secrets.sh"
+else
+  echo "❌ 找不到 secrets.sh，請依 secrets.example.sh 建立並填入密碼"
+  exit 1
+fi
 JOB_NAME="restore-db"
 REPO="asia-east1-docker.pkg.dev/${PROJECT_ID}/cloud-run-source-deploy"
 IMAGE="${REPO}/${JOB_NAME}:latest"
@@ -61,7 +70,7 @@ lines = [
     'set -e',
     '',
     'echo "▶ 開始還原：TRUNCATE → 停用 FK → 匯入資料 → 恢復 FK"',
-    "PGPASSWORD='P@ssw0rd#2026' psql \\",
+    f"PGPASSWORD='{DB_PASSWORD}' psql \\",
     '  -h /cloudsql/vertex-ai-491502:asia-east1:pg-instance \\',
     '  -U postgres -d postgres \\',
     "  -v ON_ERROR_STOP=0 << 'RESTORE_EOF'",

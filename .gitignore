@@ -39,3 +39,7 @@ Thumbs.db
 pgdata/
 
 .vercel
+
+# 機密設定（含資料庫密碼、JWT Secret，絕不推上 GitHub）
+secrets.sh
+backend/cloudrun-env.yaml
