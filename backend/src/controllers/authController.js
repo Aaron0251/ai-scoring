@@ -107,6 +107,7 @@ exports.login = async (req, res) => {
     }
 
     // ── 第二層：DB 查無此帳號 → 嘗試 EIP AD 驗證 ──────────
+    console.log(`[DEBUG] 第二層 EIP 驗證：${username}`);
     const eip = await checkEipAuth(username, password);
     if (!eip.success) {
       return res.status(401).json({ error: eip.error });
