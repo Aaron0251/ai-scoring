@@ -112,7 +112,7 @@
           <el-card class="kpi-card green">
             <div class="kpi-label">人力釋放率</div>
             <div class="kpi-value">{{ data.kpis?.humanReleaseRate || 0 }} <small>%</small></div>
-            <div class="kpi-sub">已上線場景的人力節省</div>
+            <div class="kpi-sub">節省人數 {{ Number(data.kpis?.headcountSaved||0).toFixed(1) }} 人</div>
             <el-progress :percentage="data.kpis?.humanReleaseRate || 0" :stroke-width="6" status="success" class="kpi-progress" />
           </el-card>
         </el-col>

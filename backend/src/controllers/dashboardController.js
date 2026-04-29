@@ -21,6 +21,26 @@ function sceneMonthly(s) {
   return Math.max(0, (s.originalHours || 0) - (s.improvedHours || 0));
 }
 
+/** 每月標準工時（21工作天 × 8h） */
+const MONTHLY_HOURS_PER_PERSON = 168;
+
+/**
+ * 取場景的節省人數
+ * - 有填 originalHeadcount 或 improvedHeadcount 任一欄 → 直接用差值（即使差為 0 也尊重）
+ * - 兩欄都沒填 + 有 savingHoursMonthly → 用 ÷168 換算
+ */
+function sceneHeadcountSaved(s) {
+  // 只要有填人數欄位（非 null），就直接用差值，不做 fallback
+  if (s.originalHeadcount != null || s.improvedHeadcount != null) {
+    return Math.max(0, (s.originalHeadcount || 0) - (s.improvedHeadcount || 0));
+  }
+  // 兩個人數欄位都沒填，改用 savingHoursMonthly ÷ 168 換算
+  if (s.savingHoursMonthly != null && s.savingHoursMonthly > 0) {
+    return s.savingHoursMonthly / MONTHLY_HOURS_PER_PERSON;
+  }
+  return 0;
+}
+
 function sumActualSavings(actualSavings) {
   return actualSavings.reduce((total, a) => {
     return total + MONTH_KEYS.reduce((s, k) => s + (a[k] || 0), 0);
@@ -97,7 +117,7 @@ exports.getStatsLegacy = async (req, res) => {
       const allScenes = div.departments.flatMap(d => d.scenes);
       const completedWithLive = allScenes.filter(s => s.status === '已完成' && s.goLiveDate);
       const actualSavingsTotal = sumActualSavings(completedWithLive.flatMap(s => s.actualSavings));
-      const headcountSaved = completedWithLive.reduce((sum, s) => sum + ((s.originalHeadcount||0) - (s.improvedHeadcount||0)), 0);
+      const headcountSaved = completedWithLive.reduce((sum, s) => sum + sceneHeadcountSaved(s), 0);
       return {
         name: div.name,
         total: allScenes.length,
@@ -227,7 +247,7 @@ async function getDivisionStats(allowedDeptIds) {
       const allScenes = div.departments.flatMap(d => d.scenes);
       const completedWithLive = allScenes.filter(s => s.status === '已完成' && s.goLiveDate);
       const actualSavingsTotal = sumActualSavings(completedWithLive.flatMap(s => s.actualSavings));
-      const headcountSaved = completedWithLive.reduce((sum, s) => sum + ((s.originalHeadcount||0) - (s.improvedHeadcount||0)), 0);
+      const headcountSaved = completedWithLive.reduce((sum, s) => sum + sceneHeadcountSaved(s), 0);
       const avgProgress = allScenes.length > 0 ? Math.round(allScenes.reduce((s, x) => s + (x.progress || 0), 0) / allScenes.length) : 0;
       const estimatedSaved = allScenes.reduce((sum, s) => {
         const monthly = sceneMonthly(s);
@@ -261,7 +281,7 @@ async function getDevelopMethodPie(allowedDeptIds) {
 async function getEfficiencyGains(allowedDeptIds) {
   const scenes = await prisma.scene.findMany({
     where: sceneWhereByAccess(allowedDeptIds, { active: true, status: { not: '暫定' } }),
-    select: { id: true, itemNo: true, sceneName: true, originalHours: true, improvedHours: true, originalHeadcount: true, improvedHeadcount: true, priority: true, progress: true },
+    select: { id: true, itemNo: true, sceneName: true, originalHours: true, improvedHours: true, savingHoursMonthly: true, originalHeadcount: true, improvedHeadcount: true, priority: true, progress: true },
     orderBy: { itemNo: 'asc' },
     take: 30,
   });
@@ -271,10 +291,11 @@ async function getEfficiencyGains(allowedDeptIds) {
     itemNo: s.itemNo,
     originalHours: s.originalHours || 0,
     improvedHours: s.improvedHours || 0,
-    savedHours: (s.originalHours || 0) - (s.improvedHours || 0),
+    savingHoursMonthly: s.savingHoursMonthly,   // 直接填入的預估節省時數
+    savedHours: sceneMonthly(s),                 // 優先用 savingHoursMonthly，再 fallback 到差值
     originalHeadcount: s.originalHeadcount || 0,
     improvedHeadcount: s.improvedHeadcount || 0,
-    savedHeadcount: (s.originalHeadcount || 0) - (s.improvedHeadcount || 0),
+    savedHeadcount: sceneHeadcountSaved(s),
     priority: s.priority,
     progress: s.progress || 0,
   }));
@@ -283,17 +304,16 @@ async function getEfficiencyGains(allowedDeptIds) {
 async function getTop5Scenes(allowedDeptIds) {
   const scenes = await prisma.scene.findMany({
     where: sceneWhereByAccess(allowedDeptIds, { active: true, status: { not: '暫定' } }),
-    select: { id: true, itemNo: true, sceneName: true, originalHours: true, improvedHours: true, originalHeadcount: true, improvedHeadcount: true, status: true, priority: true, progress: true },
-    orderBy: { originalHours: 'desc' },
-    take: 20,
+    select: { id: true, itemNo: true, sceneName: true, originalHours: true, improvedHours: true, savingHoursMonthly: true, originalHeadcount: true, improvedHeadcount: true, status: true, priority: true, progress: true },
+    take: 50,
   });
   return scenes
     .map(s => ({
       id: s.id,
       itemNo: s.itemNo,
       name: s.sceneName || s.itemNo,
-      savedHours: (s.originalHours || 0) - (s.improvedHours || 0),
-      savedHeadcount: (s.originalHeadcount || 0) - (s.improvedHeadcount || 0),
+      savedHours: sceneMonthly(s),   // 優先用 savingHoursMonthly
+      savedHeadcount: sceneHeadcountSaved(s),
       status: s.status,
       priority: s.priority,
       progress: s.progress || 0,
@@ -396,10 +416,10 @@ async function getKpiStats(allowedDeptIds) {
   const configMap = {};
   for (const c of configs) configMap[c.key] = c.value;
 
-  // 年化節省時數 + 平均進度（全部場景一次查，避免多次 roundtrip）
+  // 年化節省時數 + 平均進度 + 人力基準（全部場景一次查，避免多次 roundtrip）
   const allScenesForSaving = await prisma.scene.findMany({
     where: sceneWhere,
-    select: { originalHours: true, improvedHours: true, savingHoursMonthly: true, goLiveDate: true, progress: true },
+    select: { originalHours: true, improvedHours: true, savingHoursMonthly: true, goLiveDate: true, progress: true, originalHeadcount: true, improvedHeadcount: true },
   });
   const today = new Date();
 
@@ -427,12 +447,20 @@ async function getKpiStats(allowedDeptIds) {
   // 成效：狀態=已完成 且 有上線日期
   const effectiveScenes = await prisma.scene.findMany({
     where: { ...sceneWhere, status: '已完成', goLiveDate: { not: null } },
-    select: { originalHeadcount: true, improvedHeadcount: true, actualSavings: true },
+    select: { originalHeadcount: true, improvedHeadcount: true, savingHoursMonthly: true, actualSavings: true },
   });
 
   const effectiveCount = effectiveScenes.length;
   const actualTimeSavedTotal = sumActualSavings(effectiveScenes.flatMap(s => s.actualSavings));
-  const headcountSaved = effectiveScenes.reduce((sum, s) => sum + ((s.originalHeadcount||0) - (s.improvedHeadcount||0)), 0);
+  // 優先用人數差值；沒填人數但有 savingHoursMonthly 則用 ÷168 換算
+  const headcountSaved = effectiveScenes.reduce((sum, s) => sum + sceneHeadcountSaved(s), 0);
+
+  // 人力基準：所有場景的「原始人力」合計，有填 originalHeadcount 就用，否則用 originalHours÷168 換算
+  const totalHeadcountBase = allScenesForSaving.reduce((sum, s) => {
+    if (s.originalHeadcount != null) return sum + (s.originalHeadcount || 0);
+    if (s.originalHours != null && s.originalHours > 0) return sum + s.originalHours / MONTHLY_HOURS_PER_PERSON;
+    return sum;
+  }, 0);
 
   return {
     totalScenes,
@@ -449,5 +477,6 @@ async function getKpiStats(allowedDeptIds) {
     effectiveCount,
     actualTimeSavedTotal,
     headcountSaved,
+    totalHeadcountBase,
   };
 }

@@ -54,7 +54,7 @@
           <el-card class="kpi-card green">
             <div class="kpi-label">人力釋放率</div>
             <div class="kpi-value">{{ headcountReleaseRate }} <small>%</small></div>
-            <div class="kpi-sub">節省人數 {{ kpi.headcountSaved }} 人</div>
+            <div class="kpi-sub">節省人數 {{ Number(kpi.headcountSaved||0).toFixed(1) }} 人</div>
             <el-progress :percentage="headcountReleaseRate" :stroke-width="6" status="success" class="kpi-progress" />
           </el-card>
         </el-col>
@@ -122,7 +122,7 @@
                 <div class="division-stats">
                   <span>115年省時 <b>{{ Math.round(row.estimatedSaved||0) }}</b>h</span>
                   <span>實際省時 <b>{{ row.actualSavingsTotal.toFixed(0) }}</b>h</span>
-                  <span>省人數 <b>{{ row.headcountSaved }}</b></span>
+                  <span>省人數 <b>{{ Number(row.headcountSaved||0).toFixed(1) }}</b></span>
                 </div>
               </div>
             </div>
@@ -157,7 +157,7 @@
                 <template #default="{row}">{{ row.actualSavingsTotal.toFixed(0) }}</template>
               </el-table-column>
               <el-table-column label="節省人數" align="right" width="80">
-                <template #default="{row}">{{ row.headcountSaved }}</template>
+                <template #default="{row}">{{ Number(row.headcountSaved||0).toFixed(1) }}</template>
               </el-table-column>
             </el-table>
           </el-card>
@@ -268,14 +268,28 @@ const filteredDivisions = computed(() => divisions.value)
 const avgProgress = computed(() => kpi.value.avgProgress ?? 0)
 
 const headcountReleaseRate = computed(() => {
-  const total = efficiencyGains.value.reduce((s, r) => s + r.originalHeadcount, 0)
   const saved = kpi.value.headcountSaved || 0
+  // 用後端計算的人力基準（有填人數用人數，否則用 originalHours÷168 換算）
+  const total = kpi.value.totalHeadcountBase || 0
   return total > 0 ? Math.min(Math.round((saved / total) * 100), 100) : 0
 })
 
 // 省時對比圖
 const barChartOption = computed(() => {
-  const data = efficiencyGains.value.slice(0, 20)
+  // 只顯示有時數資料（originalHours 或 savingHoursMonthly）的場景
+  const data = efficiencyGains.value
+    .filter(s => s.originalHours > 0 || s.savingHoursMonthly > 0)
+    .slice(0, 20)
+
+  // 改善後時數：優先用 improvedHours；若無則從 originalHours - savingHoursMonthly 推算
+  const improvedData = data.map(s => {
+    if (s.improvedHours > 0) return s.improvedHours
+    if (s.savingHoursMonthly > 0 && s.originalHours > 0) {
+      return Math.max(0, s.originalHours - s.savingHoursMonthly)
+    }
+    return 0
+  })
+
   return {
     tooltip: { trigger: 'axis' },
     legend: { data: ['原作業時數', '改善後預估時數'] },
@@ -284,7 +298,7 @@ const barChartOption = computed(() => {
     yAxis: { type: 'value', name: '時數(h)' },
     series: [
       { name: '原作業時數', type: 'bar', data: data.map(s => s.originalHours), itemStyle: { color: '#e6a23c' }, label: { show: true, position: 'top', fontSize: 10, formatter: '{c}h' } },
-      { name: '改善後預估時數', type: 'bar', data: data.map(s => s.improvedHours), itemStyle: { color: '#67c23a' }, label: { show: true, position: 'top', fontSize: 10, formatter: '{c}h' } },
+      { name: '改善後預估時數', type: 'bar', data: improvedData, itemStyle: { color: '#67c23a' }, label: { show: true, position: 'top', fontSize: 10, formatter: '{c}h' } },
     ],
   }
 })

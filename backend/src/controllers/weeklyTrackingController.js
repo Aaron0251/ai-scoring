@@ -72,12 +72,33 @@ function calculateSceneKPIs(scenes) {
   const avgProgress = scenes.length > 0
     ? Math.round(scenes.reduce((sum, s) => sum + (s.progress || 0), 0) / scenes.length)
     : 0;
-  const originalHeadcount = scenes.reduce((sum, s) => sum + (s.originalHeadcount || 0), 0);
-  const improvedHeadcount = scenes.reduce((sum, s) => sum + (s.improvedHeadcount || 0), 0);
-  const humanReleaseRate = originalHeadcount > 0
-    ? Math.round(((originalHeadcount - improvedHeadcount) / originalHeadcount) * 100)
+
+  const MONTHLY_HOURS_PER_PERSON = 168;
+
+  // 節省人數（分子）：只算「已完成 + 有上線日期」的場景，與總覽一致
+  const effectiveScenes = scenes.filter(s => s.status === '已完成' && s.goLiveDate);
+  const headcountSaved = effectiveScenes.reduce((sum, s) => {
+    if (s.originalHeadcount != null || s.improvedHeadcount != null) {
+      return sum + Math.max(0, (s.originalHeadcount || 0) - (s.improvedHeadcount || 0));
+    }
+    if (s.savingHoursMonthly != null && s.savingHoursMonthly > 0) {
+      return sum + s.savingHoursMonthly / MONTHLY_HOURS_PER_PERSON;
+    }
+    return sum;
+  }, 0);
+
+  // 人力基準（分母）：所有場景，有填 originalHeadcount 用人數；否則用 originalHours÷168 換算
+  const totalHeadcountBase = scenes.reduce((sum, s) => {
+    if (s.originalHeadcount != null) return sum + (s.originalHeadcount || 0);
+    if (s.originalHours != null && s.originalHours > 0) return sum + s.originalHours / MONTHLY_HOURS_PER_PERSON;
+    return sum;
+  }, 0);
+
+  const humanReleaseRate = totalHeadcountBase > 0
+    ? Math.min(Math.round((headcountSaved / totalHeadcountBase) * 100), 100)
     : 0;
-  return { totalScenes, savingHours, estimatedMonthlyAvg, actualMonthlyAvg, avgProgress, humanReleaseRate };
+
+  return { totalScenes, savingHours, estimatedMonthlyAvg, actualMonthlyAvg, avgProgress, humanReleaseRate, headcountSaved: Math.round(headcountSaved * 10) / 10 };
 }
 
 /**
