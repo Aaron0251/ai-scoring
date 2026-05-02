@@ -59,7 +59,7 @@
         </el-sub-menu>
       </el-menu>
       <!-- 版本標記 -->
-      <div class="version-tag">v2.1.2 · 2026-04-28</div>
+      <div class="version-tag">v2.1.3 · 2026-05-02</div>
     </el-aside>
 
     <!-- 主區域 -->
