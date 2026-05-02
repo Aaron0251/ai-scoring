@@ -281,11 +281,11 @@ exports.importExcel = async (req, res) => {
           improvedHours = parseFloat(get('improvedHours'));
           if (isNaN(improvedHours)) { rowErrors.push('欄位「改善後預估總作業時數」必須是數字'); improvedHours = null; }
         }
-        // 預估節省時數(月)：直接存入 DB，不再推導其他欄位
-        let savingHoursMonthly = null;
+        // 預估節省時數(月)：有值就存入，空白預設 0
+        let savingHoursMonthly = 0;
         if (get('savingHoursMonthly')) {
           savingHoursMonthly = parseFloat(get('savingHoursMonthly'));
-          if (isNaN(savingHoursMonthly)) { rowErrors.push('欄位「預估節省時數(月)」必須是數字'); savingHoursMonthly = null; }
+          if (isNaN(savingHoursMonthly)) { rowErrors.push('欄位「預估節省時數(月)」必須是數字'); savingHoursMonthly = 0; }
         }
         let originalHeadcount = null;
         if (get('originalHeadcount')) {

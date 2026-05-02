@@ -392,8 +392,22 @@
               </el-col>
               <el-col :xs="24" :sm="8">
                 <div class="form-field">
-                  <label class="field-label">預估節省時數</label>
-                  <div class="field-value" style="color:#409eff;font-weight:500">{{ estimatedSavedHours ?? '-' }}</div>
+                  <label class="field-label">
+                    預估節省時數（月）
+                    <el-tooltip content="有填原時數與改善後時數時自動計算；亦可單獨手動填入" placement="top">
+                      <el-icon style="color:#909399;cursor:help;margin-left:4px"><InfoFilled /></el-icon>
+                    </el-tooltip>
+                  </label>
+                  <div v-if="!editing" class="field-value" style="color:#409eff;font-weight:500">
+                    {{ scene.savingHoursMonthly != null ? scene.savingHoursMonthly + ' h' : '-' }}
+                  </div>
+                  <el-input-number
+                    v-else
+                    v-model="form.savingHoursMonthly"
+                    :min="0" :max="9999.9" :precision="1"
+                    style="width:100%"
+                    placeholder="自動計算或手動填入"
+                  />
                 </div>
               </el-col>
             </el-row>
@@ -658,6 +672,7 @@ const form = reactive({
   goLiveDate: null,
   originalHours: null,
   improvedHours: null,
+  savingHoursMonthly: null,
   timeSavedHours: null,
   actualTimeSavedHours: null,
   originalHeadcount: null,
@@ -693,17 +708,6 @@ const allDepartments = ref([])
 const filteredDepts = computed(() =>
   form.divisionId ? allDepartments.value.filter(d => d.divisionId === form.divisionId) : []
 )
-const estimatedSavedHours = computed(() => {
-  // 非編輯模式：優先使用 savingHoursMonthly（匯入時直接填入的預估節省時數）
-  if (!editing.value && scene.value?.savingHoursMonthly != null) {
-    return scene.value.savingHoursMonthly
-  }
-  // 編輯模式或 savingHoursMonthly 無值：用 originalHours - improvedHours 計算
-  const orig = editing.value ? autoOriginalHours.value : scene.value?.originalHours
-  const imp  = editing.value ? form.improvedHours : scene.value?.improvedHours
-  if (orig == null || imp == null) return null
-  return Math.round((orig - imp) * 10) / 10
-})
 const estimatedSavedHeadcount = computed(() => {
   const orig = editing.value ? form.originalHeadcount : scene.value?.originalHeadcount
   const imp  = editing.value ? form.improvedHeadcount : scene.value?.improvedHeadcount
@@ -727,6 +731,14 @@ const autoOriginalHours = computed(() => {
   const monthlyFreq = freqUnit === '次/每週' ? freqVal * 4.33 : freqVal
 
   return Math.round(timeHours * monthlyFreq * demand * 10) / 10
+})
+
+// 情境一：原時數 + 改善後時數都有值時，自動帶入 savingHoursMonthly
+watch([autoOriginalHours, () => form.improvedHours], ([orig, imp]) => {
+  if (!editing.value) return
+  if (orig != null && imp != null) {
+    form.savingHoursMonthly = Math.max(0, Math.round((orig - imp) * 10) / 10)
+  }
 })
 
 onMounted(async () => {
@@ -839,6 +851,7 @@ function fillForm(d) {
     goLiveDate: d.goLiveDate ? d.goLiveDate.substring(0, 19) : null,
     originalHours: d.originalHours ?? null,
     improvedHours: d.improvedHours ?? null,
+    savingHoursMonthly: d.savingHoursMonthly ?? null,
     timeSavedHours: d.timeSavedHours ?? null,
     actualTimeSavedHours: d.actualTimeSavedHours ?? null,
     originalHeadcount: d.originalHeadcount ?? null,

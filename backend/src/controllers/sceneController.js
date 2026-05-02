@@ -126,6 +126,7 @@ exports.create = async (req, res) => {
       goLiveDate: body.goLiveDate ? new Date(body.goLiveDate) : null,
       originalHours: body.originalHours != null ? parseFloat(body.originalHours) : null,
       improvedHours: body.improvedHours != null ? parseFloat(body.improvedHours) : null,
+      savingHoursMonthly: body.savingHoursMonthly != null ? parseFloat(body.savingHoursMonthly) : null,
       originalHeadcount: body.originalHeadcount != null ? parseInt(body.originalHeadcount) : null,
       improvedHeadcount: body.improvedHeadcount != null ? parseInt(body.improvedHeadcount) : null,
       resultText: body.resultText || null,
@@ -170,7 +171,7 @@ exports.update = async (req, res) => {
     if (body[f] !== undefined) data[f] = body[f] !== null ? String(body[f]) : null;
   }
 
-  const floatFields = ['originalHours', 'improvedHours'];
+  const floatFields = ['originalHours', 'improvedHours', 'savingHoursMonthly'];
   for (const f of floatFields) {
     if (body[f] !== undefined) data[f] = body[f] !== null ? parseFloat(body[f]) : null;
   }
