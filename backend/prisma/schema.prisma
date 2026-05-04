@@ -2,11 +2,13 @@
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["multiSchema"]
 }
 
 datasource db {
   provider = "postgresql"
+  schemas  = ["ai_scoring"]
 }
 
 // ─────────────────────────────────────────────
@@ -20,6 +22,8 @@ model Division {
   deptPersons DeptPerson[]
   users       User[]
   createdAt   DateTime     @default(now())
+
+  @@schema("ai_scoring")
 }
 
 model Department {
@@ -34,19 +38,21 @@ model Department {
   createdAt   DateTime     @default(now())
 
   @@unique([name, divisionId])
+  @@schema("ai_scoring")
 }
 
 model Section {
-  id           Int        @id @default(autoincrement())
+  id           Int          @id @default(autoincrement())
   name         String
   departmentId Int
-  department   Department @relation(fields: [departmentId], references: [id])
+  department   Department   @relation(fields: [departmentId], references: [id])
   scenes       Scene[]
   deptPersons  DeptPerson[]
   users        User[]
-  createdAt    DateTime   @default(now())
+  createdAt    DateTime     @default(now())
 
   @@unique([name, departmentId])
+  @@schema("ai_scoring")
 }
 
 // ─────────────────────────────────────────────
@@ -54,17 +60,19 @@ model Section {
 // ─────────────────────────────────────────────
 
 model DeptPerson {
-  id           Int          @id @default(autoincrement())
+  id           Int         @id @default(autoincrement())
   name         String
-  title        String       @default("")
+  title        String      @default("")
   divisionId   Int?
-  division     Division?    @relation(fields: [divisionId], references: [id])
+  division     Division?   @relation(fields: [divisionId], references: [id])
   departmentId Int?
-  department   Department?  @relation(fields: [departmentId], references: [id])
+  department   Department? @relation(fields: [departmentId], references: [id])
   sectionId    Int?
-  section      Section?     @relation(fields: [sectionId], references: [id])
-  active       Boolean      @default(true)
-  createdAt    DateTime     @default(now())
+  section      Section?    @relation(fields: [sectionId], references: [id])
+  active       Boolean     @default(true)
+  createdAt    DateTime    @default(now())
+
+  @@schema("ai_scoring")
 }
 
 // ─────────────────────────────────────────────
@@ -72,21 +80,23 @@ model DeptPerson {
 // ─────────────────────────────────────────────
 
 model User {
-  id                 Int          @id @default(autoincrement())
-  username           String       @unique
-  password           String?      // AD 帳號不存密碼，系統帳號才有值
+  id                 Int         @id @default(autoincrement())
+  username           String      @unique
+  password           String?     // AD 帳號不存密碼，系統帳號才有值
   name               String
-  roles              String       // JSON Array 字串，如 ["admin"] 或 ["evaluator","chief"]
+  roles              String      // JSON Array 字串，如 ["admin"] 或 ["evaluator","chief"]
   divisionId         Int?
-  division           Division?    @relation(fields: [divisionId], references: [id])
+  division           Division?   @relation(fields: [divisionId], references: [id])
   departmentId       Int?
-  department         Department?  @relation(fields: [departmentId], references: [id])
+  department         Department? @relation(fields: [departmentId], references: [id])
   sectionId          Int?
-  section            Section?     @relation(fields: [sectionId], references: [id])
-  mustChangePassword Boolean      @default(false)
-  active             Boolean      @default(true)
-  createdAt          DateTime     @default(now())
-  updatedAt          DateTime     @updatedAt
+  section            Section?    @relation(fields: [sectionId], references: [id])
+  mustChangePassword Boolean     @default(false)
+  active             Boolean     @default(true)
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+
+  @@schema("ai_scoring")
 }
 
 // ─────────────────────────────────────────────
@@ -99,6 +109,8 @@ model OrgChief {
   role      String   // 總機關首長 | 本部主管
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
+
+  @@schema("ai_scoring")
 }
 
 // ─────────────────────────────────────────────
@@ -134,19 +146,19 @@ model Scene {
   taskOwners          String?    // 執行人員（逗號分隔或JSON）
   seedOwners          String?    // 種子人員
 
-  priority            String     @default("中")   // 高 | 中 | 低
+  priority            String     @default("中")    // 高 | 中 | 低
   status              String     @default("規劃中") // 規劃中 | 進行中 | 已完成 | 暫停
-  progress            Int        @default(0)       // 0-100
+  progress            Int        @default(0)        // 0-100
 
   establishDate       DateTime?
   targetDate          DateTime?
   goLiveDate          DateTime?
 
-  originalHours        Float?     // 原總作業時數
-  improvedHours        Float?     // 改善後總作業時數
-  savingHoursMonthly   Float?     // 預估節省時數（月）：直接填入值，優先於 originalHours-improvedHours
-  originalHeadcount    Int?       // 原總作業人數
-  improvedHeadcount    Int?       // 改善後總作業人數
+  originalHours       Float?     // 原總作業時數
+  improvedHours       Float?     // 改善後總作業時數
+  savingHoursMonthly  Float?     // 預估節省時數（月）：直接填入值，優先於 originalHours-improvedHours
+  originalHeadcount   Int?       // 原總作業人數
+  improvedHeadcount   Int?       // 改善後總作業人數
   // efficiencyGainPct 為計算欄，由 API 動態回傳
 
   resultText          String?
@@ -159,35 +171,36 @@ model Scene {
   createdAt           DateTime   @default(now())
   updatedAt           DateTime   @updatedAt
 
-  // 下週計畫旗標
-
   benefits            SceneBenefit[]
   executionLogs       SceneExecutionLog[]
   actualSavings       SceneActualSavings[]
   progressHistories   SceneProgressHistory[]
+
+  @@schema("ai_scoring")
 }
 
 model SceneActualSavings {
-  id      Int    @id @default(autoincrement())
-  sceneId Int
-  scene   Scene  @relation(fields: [sceneId], references: [id], onDelete: Cascade)
-  year    Int
-  jan     Float?
-  feb     Float?
-  mar     Float?
-  apr     Float?
-  may     Float?
-  jun     Float?
-  jul     Float?
-  aug     Float?
-  sep     Float?
-  oct     Float?
-  nov     Float?
-  dec     Float?
+  id        Int    @id @default(autoincrement())
+  sceneId   Int
+  scene     Scene  @relation(fields: [sceneId], references: [id], onDelete: Cascade)
+  year      Int
+  jan       Float?
+  feb       Float?
+  mar       Float?
+  apr       Float?
+  may       Float?
+  jun       Float?
+  jul       Float?
+  aug       Float?
+  sep       Float?
+  oct       Float?
+  nov       Float?
+  dec       Float?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@unique([sceneId, year])
+  @@schema("ai_scoring")
 }
 
 // ─────────────────────────────────────────────
@@ -195,16 +208,18 @@ model SceneActualSavings {
 // ─────────────────────────────────────────────
 
 model SceneExecutionLog {
-  id          Int      @id @default(autoincrement())
-  sceneId     Int
-  scene       Scene    @relation(fields: [sceneId], references: [id])
-  logDate     DateTime // 執行日期
-  executor    String?  // 執行人員姓名
-  content     String   // 執行內容說明
-  status      String   @default("完成") // 完成 | 進行中 | 暫停 | 待辦
-  note        String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        Int      @id @default(autoincrement())
+  sceneId   Int
+  scene     Scene    @relation(fields: [sceneId], references: [id])
+  logDate   DateTime // 執行日期
+  executor  String?  // 執行人員姓名
+  content   String   // 執行內容說明
+  status    String   @default("完成") // 完成 | 進行中 | 暫停 | 待辦
+  note      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@schema("ai_scoring")
 }
 
 model SceneBenefit {
@@ -216,6 +231,8 @@ model SceneBenefit {
   value       Float?
   unit        String?
   createdAt   DateTime @default(now())
+
+  @@schema("ai_scoring")
 }
 
 // ─────────────────────────────────────────────
@@ -231,6 +248,7 @@ model RolePermission {
   updatedAt  DateTime @updatedAt
 
   @@unique([role, featureKey])
+  @@schema("ai_scoring")
 }
 
 // ─────────────────────────────────────────────
@@ -242,6 +260,8 @@ model SystemConfig {
   key       String   @unique
   value     String
   updatedAt DateTime @updatedAt
+
+  @@schema("ai_scoring")
 }
 
 // ─────────────────────────────────────────────
@@ -249,15 +269,17 @@ model SystemConfig {
 // ─────────────────────────────────────────────
 
 model ExcelImportLog {
-  id           Int      @id @default(autoincrement())
-  filename     String
-  uploadedBy   Int      // User.id
-  totalRows    Int
-  successRows  Int
-  failedRows   Int
-  errors       String?  // JSON 字串
-  status       String   // processing | done | failed
-  createdAt    DateTime @default(now())
+  id          Int      @id @default(autoincrement())
+  filename    String
+  uploadedBy  Int      // User.id
+  totalRows   Int
+  successRows Int
+  failedRows  Int
+  errors      String?  // JSON 字串
+  status      String   // processing | done | failed
+  createdAt   DateTime @default(now())
+
+  @@schema("ai_scoring")
 }
 
 // ─────────────────────────────────────────────
@@ -273,7 +295,8 @@ model SceneProgressHistory {
   changedBy     String?  // 變更者帳號
   remarks       String?  // 備註（可選）
   createdAt     DateTime @default(now())
-  
+
   @@index([sceneId])
   @@index([changedAt])
+  @@schema("ai_scoring")
 }
