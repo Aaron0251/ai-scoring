@@ -165,37 +165,113 @@
       <div v-if="!data.weeklyProgressItems?.length" class="empty-state">
         <el-empty description="本週無進度變動紀錄" />
       </div>
-      <div v-else class="progress-cards">
-        <div v-for="item in data.weeklyProgressItems" :key="item.sceneId" class="progress-card">
-          <div class="card-header-row">
-            <div class="scene-id">{{ item.itemNo }}</div>
-            <el-tag size="small" :type="getPriorityType(item.priority)">{{ item.priority }}</el-tag>
-            <el-tag size="small" type="info">{{ item.status }}</el-tag>
-          </div>
-          <div class="scene-name">【{{ item.sceneName }}】</div>
-          <div class="progress-info">
-            <el-progress :percentage="item.currentProgress || 0" :color="getProgressColor(item.currentProgress)" />
-            <div class="progress-stats">
-              <span>前週進度：{{ item.previousProgress || 0 }}%</span>
-              <span>本週進度：{{ item.currentProgress || 0 }}%</span>
-              <span class="change-indicator" :class="item.changePercent > 0 ? 'positive' : item.changePercent < 0 ? 'negative' : ''">
-                {{ item.changePercent > 0 ? '▲' : item.changePercent < 0 ? '▼' : '─' }}
-                {{ item.changePercent > 0 ? '+' : '' }}{{ item.changePercent || 0 }}%
-              </span>
+      <!-- 分組折疊：無本部篩選 → 本部折疊；有本部篩選 → 部門折疊 -->
+      <div v-else class="grouped-progress">
+        <div v-for="group in groupedProgressItems" :key="group.name" class="dept-group">
+          <!-- 折疊 Header -->
+          <div
+            class="group-header"
+            :class="{ 'group-header--open': openGroups[group.name] }"
+            @click="toggleGroup(group.name)"
+          >
+            <div class="group-left">
+              <span class="group-arrow" :class="{ 'group-arrow--open': openGroups[group.name] }">▶</span>
+              <span class="group-icon">{{ filters.division ? '📋' : '🏢' }}</span>
+              <span class="group-name">{{ group.name }}</span>
+            </div>
+            <div class="group-badges">
+              <span class="g-badge g-badge-update">🔄 本週更新 {{ group.updatedCount }} 項</span>
+              <span class="g-badge g-badge-progress">📈 平均進度 {{ group.avgProgress }}%</span>
+              <span v-if="group.completedCount > 0" class="g-badge g-badge-done">✅ 已完成 {{ group.completedCount }} 項</span>
             </div>
           </div>
-          <div v-if="item.lastLog" class="last-log">
-            <strong>最新執行紀錄：</strong>
-            <div>{{ formatDate(item.lastLog.logDate) }} - {{ item.lastLog.content }}</div>
-          </div>
-          <div class="department-info">
-            <span v-if="item.division">{{ item.division }}</span>
-            <span v-if="item.department"> / {{ item.department }}</span>
-            <span v-if="item.section"> / {{ item.section }}</span>
-          </div>
-          <div class="action-buttons">
-            <el-button type="primary" size="small" @click="goToSceneDetail(item.sceneId)">查看詳情</el-button>
-            <el-button size="small" @click="quickEditProgress(item)">快速更新進度</el-button>
+
+          <!-- 折疊 Body -->
+          <div class="group-body" v-show="openGroups[group.name]">
+            <!-- Mode 1：本部 → 部門子標題（不折疊）→ 場景卡片 -->
+            <template v-if="group.subGroups && group.subGroups.length">
+              <div v-for="sub in group.subGroups" :key="sub.name" class="dept-sub-group">
+                <div class="dept-sub-label">
+                  📍 {{ sub.name }}&emsp;本週更新 {{ sub.items.length }} 項
+                </div>
+                <div class="progress-cards">
+                  <div v-for="item in sub.items" :key="item.sceneId" class="progress-card">
+                    <div class="card-header-row">
+                      <div class="scene-id">{{ item.itemNo }}</div>
+                      <el-tag size="small" :type="getPriorityType(item.priority)">{{ item.priority }}</el-tag>
+                      <el-tag size="small" type="info">{{ item.status }}</el-tag>
+                    </div>
+                    <div class="scene-name">【{{ item.sceneName }}】</div>
+                    <div class="progress-info">
+                      <el-progress :percentage="item.currentProgress || 0" :color="getProgressColor(item.currentProgress)" />
+                      <div class="progress-stats">
+                        <span>前週進度：{{ item.previousProgress || 0 }}%</span>
+                        <span>本週進度：{{ item.currentProgress || 0 }}%</span>
+                        <span class="change-indicator" :class="item.changePercent > 0 ? 'positive' : item.changePercent < 0 ? 'negative' : ''">
+                          {{ item.changePercent > 0 ? '▲' : item.changePercent < 0 ? '▼' : '─' }}
+                          {{ item.changePercent > 0 ? '+' : '' }}{{ item.changePercent || 0 }}%
+                        </span>
+                      </div>
+                    </div>
+                    <div v-if="item.lastLog" class="last-log">
+                      <strong>最新執行紀錄：</strong>
+                      <div>{{ formatDate(item.lastLog.logDate) }} - {{ item.lastLog.content }}</div>
+                    </div>
+                    <div v-if="item.remarks" class="progress-remarks">
+                      <strong>進度備註：</strong>{{ item.remarks }}
+                    </div>
+                    <div class="department-info">
+                      <span v-if="item.division">{{ item.division }}</span>
+                      <span v-if="item.department"> / {{ item.department }}</span>
+                      <span v-if="item.section"> / {{ item.section }}</span>
+                    </div>
+                    <div class="action-buttons">
+                      <el-button type="primary" size="small" @click="goToSceneDetail(item.sceneId)">查看詳情</el-button>
+                      <el-button size="small" @click="quickEditProgress(item)">快速更新進度</el-button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </template>
+
+            <!-- Mode 2：部門 → 場景卡片（直接展示） -->
+            <div v-else class="progress-cards" style="margin-top: 12px;">
+              <div v-for="item in group.items" :key="item.sceneId" class="progress-card">
+                <div class="card-header-row">
+                  <div class="scene-id">{{ item.itemNo }}</div>
+                  <el-tag size="small" :type="getPriorityType(item.priority)">{{ item.priority }}</el-tag>
+                  <el-tag size="small" type="info">{{ item.status }}</el-tag>
+                </div>
+                <div class="scene-name">【{{ item.sceneName }}】</div>
+                <div class="progress-info">
+                  <el-progress :percentage="item.currentProgress || 0" :color="getProgressColor(item.currentProgress)" />
+                  <div class="progress-stats">
+                    <span>前週進度：{{ item.previousProgress || 0 }}%</span>
+                    <span>本週進度：{{ item.currentProgress || 0 }}%</span>
+                    <span class="change-indicator" :class="item.changePercent > 0 ? 'positive' : item.changePercent < 0 ? 'negative' : ''">
+                      {{ item.changePercent > 0 ? '▲' : item.changePercent < 0 ? '▼' : '─' }}
+                      {{ item.changePercent > 0 ? '+' : '' }}{{ item.changePercent || 0 }}%
+                    </span>
+                  </div>
+                </div>
+                <div v-if="item.lastLog" class="last-log">
+                  <strong>最新執行紀錄：</strong>
+                  <div>{{ formatDate(item.lastLog.logDate) }} - {{ item.lastLog.content }}</div>
+                </div>
+                <div v-if="item.remarks" class="progress-remarks">
+                  <strong>進度備註：</strong>{{ item.remarks }}
+                </div>
+                <div class="department-info">
+                  <span v-if="item.division">{{ item.division }}</span>
+                  <span v-if="item.department"> / {{ item.department }}</span>
+                  <span v-if="item.section"> / {{ item.section }}</span>
+                </div>
+                <div class="action-buttons">
+                  <el-button type="primary" size="small" @click="goToSceneDetail(item.sceneId)">查看詳情</el-button>
+                  <el-button size="small" @click="quickEditProgress(item)">快速更新進度</el-button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -280,7 +356,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, nextTick } from 'vue'
+import { ref, reactive, computed, watch, onMounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowLeft, ArrowRight } from '@element-plus/icons-vue'
@@ -346,6 +422,75 @@ const filteredSections = computed(() => {
 
 // Top 5 直接使用後端計算好的（含 savingHoursMonthly，來自全部場景）
 const topProjects = computed(() => data.value.topSavings || [])
+
+// ── 折疊分組 ──────────────────────────────────────────────────────
+// 各群組展開狀態（預設全部展開）
+const openGroups = reactive({})
+
+/**
+ * groupedProgressItems：依篩選狀態決定分組層級
+ *   - 未選本部 → 以「本部(division)」為折疊單位，部門為子標題
+ *   - 已選本部 → 以「部門(department)」為折疊單位，直接列卡片
+ */
+const groupedProgressItems = computed(() => {
+  const items = data.value.weeklyProgressItems || []
+  if (!items.length) return []
+
+  // 依 ID 排序的輔助函式
+  const getDivisionId  = name => divisions.value.find(d => d.name === name)?.id  ?? 9999
+  const getDepartmentId = name => departments.value.find(d => d.name === name)?.id ?? 9999
+
+  if (!filters.division) {
+    // Mode 1：本部 → 部門子標題 → 卡片
+    const divMap = {}
+    for (const item of items) {
+      const divName  = item.division   || '未分類'
+      const deptName = item.department || '未分類'
+      if (!divMap[divName]) divMap[divName] = {}
+      if (!divMap[divName][deptName]) divMap[divName][deptName] = []
+      divMap[divName][deptName].push(item)
+    }
+    return Object.entries(divMap)
+      .sort(([a], [b]) => getDivisionId(a) - getDivisionId(b))
+      .map(([divName, deptMap]) => {
+        const allItems = Object.values(deptMap).flat()
+        const avgProgress    = allItems.length ? Math.round(allItems.reduce((s, i) => s + (i.currentProgress || 0), 0) / allItems.length) : 0
+        const completedCount = allItems.filter(i => i.status === '已完成').length
+        const subGroups = Object.entries(deptMap)
+          .sort(([a], [b]) => getDepartmentId(a) - getDepartmentId(b))
+          .map(([deptName, deptItems]) => ({ name: deptName, items: deptItems }))
+        return { name: divName, items: allItems, updatedCount: allItems.length, avgProgress, completedCount, subGroups }
+      })
+  } else {
+    // Mode 2：部門 → 卡片
+    const deptMap = {}
+    for (const item of items) {
+      const deptName = item.department || '未分類'
+      if (!deptMap[deptName]) deptMap[deptName] = []
+      deptMap[deptName].push(item)
+    }
+    return Object.entries(deptMap)
+      .sort(([a], [b]) => getDepartmentId(a) - getDepartmentId(b))
+      .map(([deptName, deptItems]) => {
+        const avgProgress    = deptItems.length ? Math.round(deptItems.reduce((s, i) => s + (i.currentProgress || 0), 0) / deptItems.length) : 0
+        const completedCount = deptItems.filter(i => i.status === '已完成').length
+        return { name: deptName, items: deptItems, updatedCount: deptItems.length, avgProgress, completedCount, subGroups: null }
+      })
+  }
+})
+
+// 當分組資料變化時，確保新群組預設展開
+watch(groupedProgressItems, (groups) => {
+  for (const g of groups) {
+    if (openGroups[g.name] === undefined) {
+      openGroups[g.name] = false  // 預設收合
+    }
+  }
+}, { immediate: true })
+
+function toggleGroup(groupName) {
+  openGroups[groupName] = !openGroups[groupName]
+}
 
 // ── 方法 ─────────────────────────────────────────────────────────
 function formatDate(date) {
@@ -813,12 +958,21 @@ onMounted(async () => {
   font-weight: 600;
 }
 
+.progress-remarks {
+  background: #fffbf0;
+  border-radius: 4px;
+  padding: 8px;
+  margin-bottom: 8px;
+  font-size: 15px;
+  color: #7a5f00;
+  border-left: 3px solid #e6a23c;
+}
 .last-log {
   background: #f8f9fa;
   border-radius: 4px;
   padding: 8px;
   margin-bottom: 8px;
-  font-size: 12px;
+  font-size: 15px;
   color: #555;
   border-left: 3px solid #409eff;
 }
@@ -857,5 +1011,107 @@ onMounted(async () => {
 .empty-state {
   padding: 20px 0;
   text-align: center;
+}
+
+/* ── 折疊分組 ───────────────────────────────────────── */
+.grouped-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dept-group {
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.07);
+}
+
+.group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 16px;
+  background: #fff;
+  border-left: 4px solid #409eff;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s;
+}
+
+.group-header:hover {
+  background: #f0f7ff;
+}
+
+.group-header--open {
+  background: #ecf5ff;
+}
+
+.group-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.group-arrow {
+  font-size: 11px;
+  color: #909399;
+  transition: transform 0.2s;
+  display: inline-block;
+}
+
+.group-arrow--open {
+  transform: rotate(90deg);
+}
+
+.group-icon {
+  font-size: 15px;
+}
+
+.group-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.group-badges {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.g-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.g-badge-update   { background: #ecf5ff; color: #409eff; }
+.g-badge-progress { background: #f0f9eb; color: #67c23a; }
+.g-badge-done     { background: #fdf6ec; color: #e6a23c; }
+
+.group-body {
+  background: #fff;
+  padding: 0 14px 14px;
+  border-left: 4px solid #d9ecff;
+}
+
+/* 部門子標題 */
+.dept-sub-group {
+  margin-top: 12px;
+}
+
+.dept-sub-label {
+  font-size: 12px;
+  color: #909399;
+  padding: 4px 0 8px;
+  border-bottom: 1px solid #f0f0f0;
+  margin-bottom: 8px;
 }
 </style>

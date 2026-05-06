@@ -75,30 +75,25 @@ function calculateSceneKPIs(scenes) {
 
   const MONTHLY_HOURS_PER_PERSON = 168;
 
-  // 節省人數（分子）：只算「已完成 + 有上線日期」的場景，與總覽一致
+  // ── 人力釋放率（新邏輯）────────────────────────────────────
+  // 分子：已上線（已完成 + goLiveDate）的 savingHoursMonthly 加總
   const effectiveScenes = scenes.filter(s => s.status === '已完成' && s.goLiveDate);
-  const headcountSaved = effectiveScenes.reduce((sum, s) => {
-    if (s.originalHeadcount != null || s.improvedHeadcount != null) {
-      return sum + Math.max(0, (s.originalHeadcount || 0) - (s.improvedHeadcount || 0));
-    }
-    if (s.savingHoursMonthly != null && s.savingHoursMonthly > 0) {
-      return sum + s.savingHoursMonthly / MONTHLY_HOURS_PER_PERSON;
-    }
-    return sum;
-  }, 0);
+  const onlineSavingHoursSum = effectiveScenes.reduce((sum, s) => sum + (s.savingHoursMonthly || 0), 0);
 
-  // 人力基準（分母）：所有場景，有填 originalHeadcount 用人數；否則用 originalHours÷168 換算
-  const totalHeadcountBase = scenes.reduce((sum, s) => {
-    if (s.originalHeadcount != null) return sum + (s.originalHeadcount || 0);
-    if (s.originalHours != null && s.originalHours > 0) return sum + s.originalHours / MONTHLY_HOURS_PER_PERSON;
-    return sum;
-  }, 0);
+  // 分母：全部場景排除「暫停」和「作廢」的 savingHoursMonthly 加總
+  const baseSavingHoursSum = scenes
+    .filter(s => s.status !== '暫停' && s.maintainOrDevelop !== '作廢')
+    .reduce((sum, s) => sum + (s.savingHoursMonthly || 0), 0);
 
-  const humanReleaseRate = totalHeadcountBase > 0
-    ? Math.min(Math.round((headcountSaved / totalHeadcountBase) * 100), 100)
+  // 節省人數 = 分子 ÷ 168
+  const headcountSaved = Math.round(onlineSavingHoursSum / MONTHLY_HOURS_PER_PERSON * 10) / 10;
+
+  // 人力釋放率
+  const humanReleaseRate = baseSavingHoursSum > 0
+    ? Math.min(Math.round((onlineSavingHoursSum / baseSavingHoursSum) * 100), 100)
     : 0;
 
-  return { totalScenes, savingHours, estimatedMonthlyAvg, actualMonthlyAvg, avgProgress, humanReleaseRate, headcountSaved: Math.round(headcountSaved * 10) / 10 };
+  return { totalScenes, savingHours, estimatedMonthlyAvg, actualMonthlyAvg, avgProgress, humanReleaseRate, headcountSaved };
 }
 
 /**
@@ -164,17 +159,28 @@ exports.getWeeklyTracking = async (req, res) => {
       orderBy: { changedAt: 'desc' },
     });
 
-    // 依 sceneId 分組
+    // 依 sceneId 分組（進度歷史）
     const historiesByScene = {};
     for (const h of allHistories) {
       if (!historiesByScene[h.sceneId]) historiesByScene[h.sceneId] = [];
       historiesByScene[h.sceneId].push(h);
     }
 
+    // 一次性預載本週新增的執行日誌
+    const currentWeekExecLogs = await prisma.sceneExecutionLog.findMany({
+      where: { sceneId: { in: sceneIds }, createdAt: { gte: currentStart, lte: currentEnd } },
+      orderBy: { createdAt: 'desc' },
+    });
+    const currentWeekLogsByScene = {};
+    for (const log of currentWeekExecLogs) {
+      if (!currentWeekLogsByScene[log.sceneId]) currentWeekLogsByScene[log.sceneId] = [];
+      currentWeekLogsByScene[log.sceneId].push(log);
+    }
+
     const weeklyProgressItems = [];
     const stagnatedScenes = [];
 
-    // ── 本週進度變動（含已完成）────────────────────────────
+    // ── 本週進度變動 或 本週有新執行日誌（含已完成）────────
     for (const scene of scenes) {
       const histories = historiesByScene[scene.id] || [];
 
@@ -183,30 +189,42 @@ exports.getWeeklyTracking = async (req, res) => {
         h.changedAt >= currentStart && h.changedAt <= currentEnd
       );
 
+      // 本週有新增執行日誌
+      const weeklyLogs = currentWeekLogsByScene[scene.id] || [];
+
+      // 兩者都沒有 → 不顯示
+      if (currentWeekHistory.length === 0 && weeklyLogs.length === 0) continue;
+
       // 上週最後進度（在 prevEnd 之前最新的一筆）
       const prevRecord = histories.find(h => h.changedAt <= prevEnd);
       const prevProgress = prevRecord ? prevRecord.progressValue : 0;
 
-      if (currentWeekHistory.length > 0) {
-        const currentProgress = scene.progress;
-        const changePercent = currentProgress - prevProgress;
-        const indicator = changePercent > 0 ? '↑' : changePercent < 0 ? '↓' : '─';
-        weeklyProgressItems.push({
-          sceneId: scene.id,
-          sceneName: scene.sceneName,
-          itemNo: scene.itemNo,
-          priority: scene.priority,
-          status: scene.status,
-          currentProgress,
-          previousProgress: prevProgress,
-          changePercent,
-          indicator,
-          lastLog: scene.executionLogs[0] || null,
-          department: scene.department?.name,
-          division: scene.department?.division?.name,
-          section: scene.section?.name,
-        });
-      }
+      const currentProgress = scene.progress;
+      const changePercent = currentProgress - prevProgress;
+      const indicator = changePercent > 0 ? '↑' : changePercent < 0 ? '↓' : '─';
+
+      // 本週進度歷史的備註（多筆以「；」合併）
+      const remarks = currentWeekHistory
+        .filter(h => h.remarks)
+        .map(h => h.remarks)
+        .join('；') || null;
+
+      weeklyProgressItems.push({
+        sceneId: scene.id,
+        sceneName: scene.sceneName,
+        itemNo: scene.itemNo,
+        priority: scene.priority,
+        status: scene.status,
+        currentProgress,
+        previousProgress: prevProgress,
+        changePercent,
+        indicator,
+        remarks,
+        lastLog: weeklyLogs[0] || scene.executionLogs[0] || null,
+        department: scene.department?.name,
+        division: scene.department?.division?.name,
+        section: scene.section?.name,
+      });
     }
 
     // ── 停滯偵測（只看進行中/規劃中，排除已完成與暫停）────

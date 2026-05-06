@@ -233,7 +233,7 @@ async function getDivisionStats(allowedDeptIds) {
         include: {
           scenes: {
             where: { active: true, status: { not: '暫定' } },
-            select: { status: true, originalHours: true, improvedHours: true, savingHoursMonthly: true, goLiveDate: true, originalHeadcount: true, improvedHeadcount: true, actualSavings: true, progress: true },
+            select: { status: true, originalHours: true, improvedHours: true, savingHoursMonthly: true, goLiveDate: true, progress: true },
           },
         },
       },
@@ -246,8 +246,11 @@ async function getDivisionStats(allowedDeptIds) {
     .map(div => {
       const allScenes = div.departments.flatMap(d => d.scenes);
       const completedWithLive = allScenes.filter(s => s.status === '已完成' && s.goLiveDate);
-      const actualSavingsTotal = sumActualSavings(completedWithLive.flatMap(s => s.actualSavings));
-      const headcountSaved = completedWithLive.reduce((sum, s) => sum + sceneHeadcountSaved(s), 0);
+      const onlineSavingHoursSum = completedWithLive.reduce((sum, s) => sum + (s.savingHoursMonthly || 0), 0);
+      // 實際節省(h)：已上線場景的 savingHoursMonthly 加總
+      const actualSavingsTotal = onlineSavingHoursSum;
+      // 節省人數：已上線場景的 savingHoursMonthly 加總 ÷ 168
+      const headcountSaved = Math.round(onlineSavingHoursSum / MONTHLY_HOURS_PER_PERSON * 10) / 10;
       const avgProgress = allScenes.length > 0 ? Math.round(allScenes.reduce((s, x) => s + (x.progress || 0), 0) / allScenes.length) : 0;
       const estimatedSaved = allScenes.reduce((sum, s) => {
         const monthly = sceneMonthly(s);
@@ -416,10 +419,10 @@ async function getKpiStats(allowedDeptIds) {
   const configMap = {};
   for (const c of configs) configMap[c.key] = c.value;
 
-  // 年化節省時數 + 平均進度 + 人力基準（全部場景一次查，避免多次 roundtrip）
+  // 年化節省時數 + 平均進度 + 人力計算（全部場景一次查，避免多次 roundtrip）
   const allScenesForSaving = await prisma.scene.findMany({
     where: sceneWhere,
-    select: { originalHours: true, improvedHours: true, savingHoursMonthly: true, goLiveDate: true, progress: true, originalHeadcount: true, improvedHeadcount: true },
+    select: { originalHours: true, improvedHours: true, savingHoursMonthly: true, goLiveDate: true, progress: true, status: true, maintainOrDevelop: true },
   });
   const today = new Date();
 
@@ -447,20 +450,28 @@ async function getKpiStats(allowedDeptIds) {
   // 成效：狀態=已完成 且 有上線日期
   const effectiveScenes = await prisma.scene.findMany({
     where: { ...sceneWhere, status: '已完成', goLiveDate: { not: null } },
-    select: { originalHeadcount: true, improvedHeadcount: true, savingHoursMonthly: true, actualSavings: true },
+    select: { savingHoursMonthly: true, actualSavings: true },
   });
 
   const effectiveCount = effectiveScenes.length;
   const actualTimeSavedTotal = sumActualSavings(effectiveScenes.flatMap(s => s.actualSavings));
-  // 優先用人數差值；沒填人數但有 savingHoursMonthly 則用 ÷168 換算
-  const headcountSaved = effectiveScenes.reduce((sum, s) => sum + sceneHeadcountSaved(s), 0);
 
-  // 人力基準：所有場景的「原始人力」合計，有填 originalHeadcount 就用，否則用 originalHours÷168 換算
-  const totalHeadcountBase = allScenesForSaving.reduce((sum, s) => {
-    if (s.originalHeadcount != null) return sum + (s.originalHeadcount || 0);
-    if (s.originalHours != null && s.originalHours > 0) return sum + s.originalHours / MONTHLY_HOURS_PER_PERSON;
-    return sum;
-  }, 0);
+  // ── 人力釋放率（新邏輯）────────────────────────────────────
+  // 分子：已上線（已完成 + goLiveDate）的 savingHoursMonthly 加總
+  const onlineSavingHoursSum = allScenesForSaving
+    .filter(s => s.status === '已完成' && s.goLiveDate)
+    .reduce((sum, s) => sum + (s.savingHoursMonthly || 0), 0);
+
+  // 分母：全部場景排除「暫停」和「作廢」的 savingHoursMonthly 加總
+  const baseSavingHoursSum = allScenesForSaving
+    .filter(s => s.status !== '暫停' && s.maintainOrDevelop !== '作廢')
+    .reduce((sum, s) => sum + (s.savingHoursMonthly || 0), 0);
+
+  // 節省人數 = 分子 ÷ 168
+  const headcountSaved = Math.round(onlineSavingHoursSum / MONTHLY_HOURS_PER_PERSON * 10) / 10;
+
+  // 前端以 headcountSaved / totalHeadcountBase 計算 %，故分母也除以 168 保持單位一致
+  const totalHeadcountBase = baseSavingHoursSum / MONTHLY_HOURS_PER_PERSON;
 
   return {
     totalScenes,
