@@ -22,40 +22,45 @@
 
       <!-- ① 核心 KPI 總覽 -->
       <div class="section-title">核心 KPI 總覽</div>
-      <el-row :gutter="16" class="kpi-row">
-        <el-col :xs="24" :sm="6">
+      <el-row :gutter="12" class="kpi-row">
+        <el-col :xs="24" :sm="4">
           <el-card class="kpi-card">
             <div class="kpi-label">專案總數</div>
             <div class="kpi-value">{{ kpi.totalScenes ?? '-' }}</div>
             <div class="kpi-sub">上線 {{ kpi.effectiveCount }} / 目標 {{ kpi.targetScenes }}</div>
-            <el-progress :percentage="Math.min(Math.round((kpi.totalScenes/kpi.targetScenes)*100)||0,100)" :stroke-width="6" class="kpi-progress" />
+            <el-progress :percentage="pctScenes" :stroke-width="6" :color="pctScenes >= 100 ? '#67c23a' : ''" :show-text="pctScenes < 100" class="kpi-progress" />
           </el-card>
         </el-col>
-        <el-col :xs="24" :sm="6">
+        <el-col :xs="24" :sm="5">
           <el-card class="kpi-card orange">
             <div class="kpi-label">115年預估節省時數</div>
             <div class="kpi-value">{{ Math.round(kpi.annualizedSaved115||0).toLocaleString() }} <small>h</small></div>
-            <div class="kpi-sub" style="display:flex;justify-content:space-between">
-              <span>預估月均 {{ (kpi.estimatedTimeSaved||0).toFixed(0) }} h</span>
-              <span>實際月均 {{ (kpi.actualMonthlyAvg||0).toFixed(0) }} h</span>
-            </div>
-            <el-progress :percentage="Math.min(Math.round(((kpi.annualizedSaved115||0)/kpi.targetHours)*100)||0,100)" :stroke-width="6" status="warning" class="kpi-progress" />
+            <div class="kpi-sub">預估月均 {{ (kpi.estimatedTimeSaved||0).toFixed(0) }} h</div>
+            <el-progress :percentage="100" :stroke-width="6" color="#67c23a" :show-text="false" class="kpi-progress" />
           </el-card>
         </el-col>
-        <el-col :xs="24" :sm="6">
+        <el-col :xs="24" :sm="5">
+          <el-card class="kpi-card yellow">
+            <div class="kpi-label">115年實際節省時數</div>
+            <div class="kpi-value">{{ Math.round((kpi.actualMonthlyAvg||0)*12).toLocaleString() }} <small>h</small></div>
+            <div class="kpi-sub">實際月均 {{ (kpi.actualMonthlyAvg||0).toFixed(0) }} h</div>
+            <el-progress :percentage="pctActual" :stroke-width="6" :color="pctActual >= 100 ? '#67c23a' : ''" :show-text="pctActual < 100" class="kpi-progress" />
+          </el-card>
+        </el-col>
+        <el-col :xs="24" :sm="5">
           <el-card class="kpi-card blue">
             <div class="kpi-label">平均進度</div>
             <div class="kpi-value">{{ avgProgress }} <small>%</small></div>
             <div class="kpi-sub">進行中 {{ kpi.inProgressScenes }}　規劃中 {{ kpi.plannedScenes }}</div>
-            <el-progress :percentage="avgProgress" :stroke-width="6" class="kpi-progress" />
+            <el-progress :percentage="avgProgress" :stroke-width="6" :color="avgProgress >= 100 ? '#67c23a' : ''" :show-text="avgProgress < 100" class="kpi-progress" />
           </el-card>
         </el-col>
-        <el-col :xs="24" :sm="6">
+        <el-col :xs="24" :sm="5">
           <el-card class="kpi-card green">
             <div class="kpi-label">人力釋放率</div>
             <div class="kpi-value">{{ headcountReleaseRate }} <small>%</small></div>
             <div class="kpi-sub">節省人數 {{ Number(kpi.headcountSaved||0).toFixed(1) }} 人</div>
-            <el-progress :percentage="headcountReleaseRate" :stroke-width="6" status="success" class="kpi-progress" />
+            <el-progress :percentage="headcountReleaseRate" :stroke-width="6" :color="headcountReleaseRate >= 100 ? '#67c23a' : ''" :show-text="headcountReleaseRate < 100" class="kpi-progress" />
           </el-card>
         </el-col>
       </el-row>
@@ -267,6 +272,10 @@ const filteredDivisions = computed(() => divisions.value)
 // 直接使用後端計算的所有場景直接平均（與 Weekly Tracking 一致）
 const avgProgress = computed(() => kpi.value.avgProgress ?? 0)
 
+// KPI 進度條百分比（集中管理，避免模板重複算式）
+const pctScenes  = computed(() => Math.min(Math.round((kpi.value.effectiveCount / kpi.value.totalScenes) * 100) || 0, 100))
+const pctActual  = computed(() => Math.min(Math.round(((kpi.value.actualMonthlyAvg || 0) * 12 / (kpi.value.annualizedSaved115 || 1)) * 100), 100))
+
 const headcountReleaseRate = computed(() => {
   const saved = kpi.value.headcountSaved || 0
   // 用後端計算的人力基準（有填人數用人數，否則用 originalHours÷168 換算）
@@ -359,6 +368,7 @@ const treemapOption = computed(() => ({
   }],
 }))
 
+
 function priorityType(p) {
   return p === '高' ? 'danger' : p === '中' ? 'warning' : 'info'
 }
@@ -414,11 +424,20 @@ onMounted(async () => {
 .kpi-card.green :deep(.el-card__body) { background: #f0f9eb; }
 .kpi-card.blue :deep(.el-card__body) { background: #ecf5ff; }
 .kpi-card.orange :deep(.el-card__body) { background: #fdf6ec; }
+.kpi-card.yellow :deep(.el-card__body) { background: #fffbe6; }
+.kpi-card.yellow .kpi-value { color: #d48806; }
 .kpi-label { font-size: 13px; color: #909399; margin-bottom: 8px; }
 .kpi-value { font-size: 36px; font-weight: 700; color: #303133; line-height: 1; }
 .kpi-value small { font-size: 16px; font-weight: 400; color: #606266; }
+.kpi-value--half { font-size: 26px; }
+.kpi-value--half small { font-size: 13px; }
+.kpi-value--actual { color: #e6a23c; }
+.kpi-tag { font-size: 11px; font-weight: 600; letter-spacing: 0.5px; padding: 2px 8px; border-radius: 10px; display: inline-block; margin-bottom: 4px; }
+.kpi-tag--est { background: #f0f0f0; color: #606266; }
+.kpi-tag--act { background: #fdf0d5; color: #b07d20; }
 .kpi-sub { font-size: 12px; color: #909399; margin: 6px 0 8px; }
 .kpi-progress { margin-top: 4px; }
+.kpi-progress :deep(.el-progress__text) { font-size: 11px !important; }
 .top5-item { display: flex; align-items: center; padding: 8px 0; border-bottom: 1px solid #f0f0f0; }
 .top5-item:last-child { border-bottom: none; }
 .top5-rank { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; background: #f0f0f0; color: #606266; flex-shrink: 0; }

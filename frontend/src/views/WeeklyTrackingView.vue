@@ -85,8 +85,14 @@
           <el-card class="kpi-card">
             <div class="kpi-label">總場景數</div>
             <div class="kpi-value">{{ data.kpis?.totalScenes || 0 }}</div>
-            <div class="kpi-sub">進行中 {{ data.kpis?.totalScenes || 0 }} 個</div>
-            <el-progress :percentage="100" :stroke-width="6" class="kpi-progress" :show-text="false" />
+            <!-- 本週有更新的場景數 / 總場景數 -->
+            <div class="kpi-sub">本週有更新 {{ data.weeklyProgressItems?.length || 0 }} 個</div>
+            <el-progress
+              :percentage="Math.min(Math.round(((data.weeklyProgressItems?.length||0)/(data.kpis?.totalScenes||1))*100),100)"
+              :stroke-width="6"
+              :color="Math.min(Math.round(((data.weeklyProgressItems?.length||0)/(data.kpis?.totalScenes||1))*100),100) >= 100 ? '#67c23a' : ''"
+              :show-text="Math.min(Math.round(((data.weeklyProgressItems?.length||0)/(data.kpis?.totalScenes||1))*100),100) < 100"
+              class="kpi-progress" />
           </el-card>
         </el-col>
         <el-col :xs="24" :sm="6">
@@ -97,7 +103,7 @@
               <span>預估月均 {{ (data.kpis?.estimatedMonthlyAvg || 0).toFixed(0) }} h</span>
               <span>實際月均 {{ (data.kpis?.actualMonthlyAvg || 0).toFixed(0) }} h</span>
             </div>
-            <el-progress :percentage="100" :stroke-width="6" status="warning" class="kpi-progress" :show-text="false" />
+            <el-progress :percentage="100" :stroke-width="6" color="#67c23a" :show-text="false" class="kpi-progress" />
           </el-card>
         </el-col>
         <el-col :xs="24" :sm="6">
@@ -105,7 +111,7 @@
             <div class="kpi-label">平均進度</div>
             <div class="kpi-value">{{ data.kpis?.avgProgress || 0 }} <small>%</small></div>
             <div class="kpi-sub">本週追蹤場景 {{ data.weeklyProgressItems?.length || 0 }} 個有更新</div>
-            <el-progress :percentage="data.kpis?.avgProgress || 0" :stroke-width="6" class="kpi-progress" />
+            <el-progress :percentage="data.kpis?.avgProgress || 0" :stroke-width="6" :color="(data.kpis?.avgProgress||0) >= 100 ? '#67c23a' : ''" :show-text="(data.kpis?.avgProgress||0) < 100" class="kpi-progress" />
           </el-card>
         </el-col>
         <el-col :xs="24" :sm="6">
@@ -113,7 +119,7 @@
             <div class="kpi-label">人力釋放率</div>
             <div class="kpi-value">{{ data.kpis?.humanReleaseRate || 0 }} <small>%</small></div>
             <div class="kpi-sub">節省人數 {{ Number(data.kpis?.headcountSaved||0).toFixed(1) }} 人</div>
-            <el-progress :percentage="data.kpis?.humanReleaseRate || 0" :stroke-width="6" status="success" class="kpi-progress" />
+            <el-progress :percentage="data.kpis?.humanReleaseRate || 0" :stroke-width="6" :color="(data.kpis?.humanReleaseRate||0) >= 100 ? '#67c23a' : ''" :show-text="(data.kpis?.humanReleaseRate||0) < 100" class="kpi-progress" />
           </el-card>
         </el-col>
       </el-row>
