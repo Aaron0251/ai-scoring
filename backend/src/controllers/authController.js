@@ -119,7 +119,7 @@ exports.login = async (req, res) => {
         username,
         password: null,           // AD 帳號不存 DB 密碼
         name: username,           // 暫用帳號當姓名，admin 可後續修改
-        roles: JSON.stringify(['chief']),
+        roles: JSON.stringify(['executive']),
         active: true,
         mustChangePassword: false,
       },

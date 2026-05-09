@@ -36,7 +36,7 @@
           >匯出選取（{{ selectedScenes.length }}）</el-button>
 
           <el-button
-            v-if="auth.isAdmin || auth.isManager || auth.isChief || auth.isExecutive"
+            v-if="auth.isAdmin || auth.isManager || auth.isChief"
             type="primary"
             size="small"
             @click="openCreateDialog"
@@ -154,7 +154,7 @@
               <div style="display:flex;gap:0;align-items:center;">
                 <el-button size="small" link @click="openDetail(row)">查看</el-button>
                 <el-button
-                  v-if="auth.isAdmin || auth.isManager || auth.isChief || auth.isExecutive"
+                  v-if="auth.isAdmin || auth.isManager || auth.isChief"
                   size="small" link type="primary"
                   @click="openEdit(row)"
                 >編輯</el-button>

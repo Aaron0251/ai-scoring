@@ -11,7 +11,7 @@
             種子負責人：{{ scene.seedOwners }}
           </span>
         </div>
-        <div v-if="auth.isAdmin || auth.isManager || auth.isChief || auth.isExecutive">
+        <div v-if="auth.isAdmin || auth.isManager || auth.isChief">
           <el-button v-if="!editing" type="primary" @click="startEdit">編輯</el-button>
           <template v-else>
             <el-button @click="cancelEdit">取消</el-button>
@@ -515,7 +515,7 @@
                 <div style="display:flex;align-items:center;gap:8px">
                   <span style="font-weight:600;font-size:14px">📋 執行日誌</span>
                 </div>
-                <el-button v-if="auth.isAdmin || auth.isManager || auth.isChief || auth.isExecutive" type="primary" size="small" @click="openLogDialog(null)">
+                <el-button v-if="auth.isAdmin || auth.isManager || auth.isChief" type="primary" size="small" @click="openLogDialog(null)">
                   + 新增日誌
                 </el-button>
               </div>
@@ -536,7 +536,7 @@
                 </template>
               </el-table-column>
               <el-table-column label="備註" prop="note" min-width="120" show-overflow-tooltip />
-              <el-table-column v-if="auth.isAdmin || auth.isManager || auth.isChief || auth.isExecutive" label="操作" width="120" align="center" fixed="right">
+              <el-table-column v-if="auth.isAdmin || auth.isManager || auth.isChief" label="操作" width="120" align="center" fixed="right">
                 <template #default="{row}">
                   <el-button size="small" link @click="openLogDialog(row)">編輯</el-button>
                   <el-divider direction="vertical" />
