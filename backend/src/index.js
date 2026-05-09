@@ -23,6 +23,7 @@ const leaderTrackingRoutes     = require('./routes/leader-tracking');
 const rolePermissionsRoutes    = require('./routes/role-permissions');
 const actualSavingsRoutes      = require('./routes/actual-savings');
 const weeklyTrackingRoutes     = require('./routes/weekly-tracking');
+const resourceLibraryRoutes    = require('./routes/resource-library');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -60,6 +61,10 @@ const generalLimiter = rateLimit({
 });
 app.use(generalLimiter);
 
+// ── 靜態檔案（上傳的資源）────────────────────
+const path = require('path');
+app.use('/uploads', express.static(path.resolve(__dirname, '../uploads')));
+
 // ── Body Parser ───────────────────────────────
 app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true }));
@@ -79,6 +84,7 @@ app.use('/api/import',                  importRoutes);
 app.use('/api/config',                  configRoutes);
 app.use('/api/dashboard',               dashboardRoutes);
 app.use('/api/weekly-tracking',         weeklyTrackingRoutes);
+app.use('/api/resource-library',        resourceLibraryRoutes);
 // 评分相关路由已删除
 app.use('/api/efficiency-reports',      efficiencyReportsRoutes);
 app.use('/api/leader-tracking',         leaderTrackingRoutes);

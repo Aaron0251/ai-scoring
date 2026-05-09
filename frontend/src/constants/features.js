@@ -47,6 +47,14 @@ export const FEATURES = [
   },
   {
     category: '主要功能',
+    key: 'resource-library',
+    label: '成果資源庫',
+    path: '/resource-library',
+    icon: 'Collection',
+    defaultRoles: ['admin', 'manager', 'executive', 'chief'],
+  },
+  {
+    category: '主要功能',
     key: 'import',
     label: 'Excel 批次匯入',
     path: '/import',

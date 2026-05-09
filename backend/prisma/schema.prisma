@@ -16,40 +16,46 @@ datasource db {
 // ─────────────────────────────────────────────
 
 model Division {
-  id          Int          @id @default(autoincrement())
-  name        String       @unique
-  departments Department[]
-  deptPersons DeptPerson[]
-  users       User[]
-  createdAt   DateTime     @default(now())
+  id                 Int                @id @default(autoincrement())
+  name               String             @unique
+  departments        Department[]
+  deptPersons        DeptPerson[]
+  users              User[]
+  resourceCategories ResourceCategory[]
+  resourceTools      ResourceTool[]
+  createdAt          DateTime           @default(now())
 
   @@schema("ai_scoring")
 }
 
 model Department {
-  id          Int          @id @default(autoincrement())
-  name        String
-  divisionId  Int
-  division    Division     @relation(fields: [divisionId], references: [id])
-  sections    Section[]
-  scenes      Scene[]
-  deptPersons DeptPerson[]
-  users       User[]
-  createdAt   DateTime     @default(now())
+  id             Int            @id @default(autoincrement())
+  name           String
+  divisionId     Int
+  division       Division       @relation(fields: [divisionId], references: [id])
+  sections       Section[]
+  scenes         Scene[]
+  deptPersons    DeptPerson[]
+  users          User[]
+  resourceTools      ResourceTool[]
+  resourceCategories ResourceCategory[]
+  createdAt          DateTime       @default(now())
 
   @@unique([name, divisionId])
   @@schema("ai_scoring")
 }
 
 model Section {
-  id           Int          @id @default(autoincrement())
-  name         String
-  departmentId Int
-  department   Department   @relation(fields: [departmentId], references: [id])
-  scenes       Scene[]
-  deptPersons  DeptPerson[]
-  users        User[]
-  createdAt    DateTime     @default(now())
+  id                 Int                @id @default(autoincrement())
+  name               String
+  departmentId       Int
+  department         Department         @relation(fields: [departmentId], references: [id])
+  scenes             Scene[]
+  deptPersons        DeptPerson[]
+  users              User[]
+  resourceCategories ResourceCategory[]
+  resourceTools      ResourceTool[]
+  createdAt          DateTime           @default(now())
 
   @@unique([name, departmentId])
   @@schema("ai_scoring")
@@ -279,6 +285,85 @@ model ExcelImportLog {
   status      String   // processing | done | failed
   createdAt   DateTime @default(now())
 
+  @@schema("ai_scoring")
+}
+
+// ─────────────────────────────────────────────
+// 成果資源庫
+// ─────────────────────────────────────────────
+
+model ResourceCategory {
+  id           Int            @id @default(autoincrement())
+  name         String
+  description  String?
+  divisionId   Int?           // 本部層級
+  division     Division?      @relation(fields: [divisionId], references: [id])
+  departmentId Int?           // 部門層級
+  department   Department?    @relation(fields: [departmentId], references: [id])
+  sectionId    Int?           // 課別層級
+  section      Section?       @relation(fields: [sectionId], references: [id])
+  sortOrder    Int            @default(0)
+  active       Boolean        @default(true)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  tools        ResourceTool[]
+
+  @@schema("ai_scoring")
+}
+
+model ResourceTool {
+  id           Int              @id @default(autoincrement())
+  name         String
+  description  String?
+  categoryId   Int
+  category     ResourceCategory @relation(fields: [categoryId], references: [id])
+  divisionId   Int?
+  division     Division?        @relation(fields: [divisionId], references: [id])
+  departmentId Int?
+  department   Department?      @relation(fields: [departmentId], references: [id])
+  sectionId    Int?
+  section      Section?         @relation(fields: [sectionId], references: [id])
+  sortOrder    Int              @default(0)
+  active       Boolean          @default(true)
+  createdBy    String?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  items        ResourceItem[]
+  favorites    UserFavorite[]
+
+  @@schema("ai_scoring")
+}
+
+model ResourceItem {
+  id          Int          @id @default(autoincrement())
+  toolId      Int
+  tool        ResourceTool @relation(fields: [toolId], references: [id], onDelete: Cascade)
+  name        String       // 項目名稱，如：操作說明書、官方網站
+  itemType    String       // url | pdf | excel | video | image | text
+  url         String?      // 網址連結（itemType = url 時使用）
+  filePath    String?      // 上傳檔案路徑（itemType = pdf/excel/video/image 時使用）
+  fileSize    Int?         // 檔案大小（bytes）
+  mimeType    String?
+  description String?
+  sortOrder   Int          @default(0)
+  active      Boolean      @default(true)
+  createdBy   String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@schema("ai_scoring")
+}
+
+model UserFavorite {
+  id         Int          @id @default(autoincrement())
+  userId     Int          // User.id
+  toolId     Int
+  tool       ResourceTool @relation(fields: [toolId], references: [id], onDelete: Cascade)
+  folderName String?      // 個人最愛資料夾名稱（可選）
+  sortOrder  Int          @default(0)
+  createdAt  DateTime     @default(now())
+
+  @@unique([userId, toolId])
   @@schema("ai_scoring")
 }
 

@@ -84,6 +84,13 @@ const router = createRouter({
       component: () => import('../views/WeeklyTrackingView.vue'),
       meta: { featureKey: 'weekly-tracking' },
     },
+    // ── 成果資源庫 ─────────────────────────────
+    {
+      path: '/resource-library',
+      name: 'resource-library',
+      component: () => import('../views/ResourceLibraryView.vue'),
+      meta: { featureKey: 'resource-library' },
+    },
     // ── 個人 ────────────────────────────────────
     {
       path: '/profile',

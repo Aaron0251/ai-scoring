@@ -36,6 +36,12 @@ const FEATURES = [
   },
   {
     category: '主要功能',
+    key: 'resource-library',
+    label: '成果資源庫',
+    defaultRoles: ['admin', 'manager', 'executive', 'chief', 'boss'],
+  },
+  {
+    category: '主要功能',
     key: 'import',
     label: 'Excel 批次匯入',
     defaultRoles: ['admin', 'manager', 'chief', 'boss'],

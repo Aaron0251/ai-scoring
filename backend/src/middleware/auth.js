@@ -48,4 +48,18 @@ function requireAdmin(req, res, next) {
   next();
 }
 
-module.exports = { authenticate, authorize, requireAdmin };
+/**
+ * 快捷：管理員或管理人員
+ */
+function requireAdminOrManager(req, res, next) {
+  if (!req.user || !Array.isArray(req.user.roles)) {
+    return res.status(403).json({ error: '權限不足' });
+  }
+  const hasRole = ['admin', 'manager'].some(r => req.user.roles.includes(r));
+  if (!hasRole) {
+    return res.status(403).json({ error: '僅限管理員或管理人員操作' });
+  }
+  next();
+}
+
+module.exports = { authenticate, authorize, requireAdmin, requireAdminOrManager };

@@ -55,6 +55,7 @@ async function buildLoginResponse(user) {
       name: user.name,
       divisionId: user.divisionId,
       departmentId: user.departmentId,
+      sectionId: user.sectionId,
     },
     JWT_SECRET,
     { expiresIn: '8h' }
@@ -69,6 +70,7 @@ async function buildLoginResponse(user) {
       allowedFeatures,
       divisionId: user.divisionId,
       departmentId: user.departmentId,
+      sectionId: user.sectionId,
       mustChangePassword: user.mustChangePassword,
     },
   };
@@ -152,6 +154,7 @@ exports.me = async (req, res) => {
     allowedFeatures,
     divisionId: user.divisionId,
     departmentId: user.departmentId,
+    sectionId: user.sectionId,
     department: user.department,
     mustChangePassword: user.mustChangePassword,
   });

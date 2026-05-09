@@ -43,6 +43,10 @@
             <el-icon><Calendar /></el-icon>
                 <span>各本部週進度追蹤</span>
        </el-menu-item>
+        <el-menu-item v-if="auth.hasFeature('resource-library')" index="/resource-library">
+          <el-icon><Collection /></el-icon>
+          <span>成果資源庫</span>
+        </el-menu-item>
         <el-menu-item v-if="auth.hasFeature('import')" index="/import">
           <el-icon><Upload /></el-icon>
           <span>Excel 匯入</span>
@@ -59,7 +63,7 @@
         </el-sub-menu>
       </el-menu>
       <!-- 版本標記 -->
-      <div class="version-tag">v2.1.3 · 2026-05-02</div>
+      <div class="version-tag">v2.2.0 · 2026-05-06</div>
     </el-aside>
 
     <!-- 主區域 -->
