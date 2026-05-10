@@ -3,6 +3,13 @@ const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
 
+// 生產環境隱藏內部錯誤細節，開發環境保留完整訊息
+function safeError(res, err, status = 500) {
+  const isProd = process.env.NODE_ENV === 'production';
+  console.error('[ResourceLibrary]', err);
+  res.status(status).json({ error: isProd ? '伺服器發生錯誤，請稍後再試' : err.message });
+}
+
 const UPLOAD_DIR = path.resolve(__dirname, '../../uploads/resources');
 if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
@@ -77,7 +84,7 @@ exports.getCategories = async (req, res) => {
     });
     res.json(categories);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    safeError(res, err);
   }
 };
 
@@ -123,7 +130,7 @@ exports.createCategory = async (req, res) => {
     res.status(201).json(cat);
   } catch (err) {
     if (err.code === 'P2002') return res.status(409).json({ error: '此組織層級已有相同名稱的分類' });
-    res.status(500).json({ error: err.message });
+    safeError(res, err);
   }
 };
 
@@ -139,7 +146,7 @@ exports.updateCategory = async (req, res) => {
     res.json(cat);
   } catch (err) {
     if (err.code === 'P2025') return res.status(404).json({ error: '找不到分類' });
-    res.status(500).json({ error: err.message });
+    safeError(res, err);
   }
 };
 
@@ -149,7 +156,7 @@ exports.deleteCategory = async (req, res) => {
     await prisma.resourceCategory.update({ where: { id }, data: { active: false } });
     res.json({ message: '已刪除' });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    safeError(res, err);
   }
 };
 
@@ -175,7 +182,7 @@ exports.getTools = async (req, res) => {
     });
     res.json(tools);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    safeError(res, err);
   }
 };
 
@@ -256,7 +263,7 @@ exports.getToolsGrouped = async (req, res) => {
 
     res.json(result);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    safeError(res, err);
   }
 };
 
@@ -287,7 +294,7 @@ exports.createTool = async (req, res) => {
     });
     res.status(201).json(tool);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    safeError(res, err);
   }
 };
 
@@ -314,7 +321,7 @@ exports.updateTool = async (req, res) => {
     res.json(tool);
   } catch (err) {
     if (err.code === 'P2025') return res.status(404).json({ error: '找不到工具' });
-    res.status(500).json({ error: err.message });
+    safeError(res, err);
   }
 };
 
@@ -324,7 +331,7 @@ exports.deleteTool = async (req, res) => {
     await prisma.resourceTool.update({ where: { id }, data: { active: false } });
     res.json({ message: '已刪除' });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    safeError(res, err);
   }
 };
 
@@ -369,7 +376,7 @@ exports.createItem = async (req, res) => {
     });
     res.status(201).json(item);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    safeError(res, err);
   }
 };
 
@@ -385,7 +392,7 @@ exports.updateItem = async (req, res) => {
     res.json(item);
   } catch (err) {
     if (err.code === 'P2025') return res.status(404).json({ error: '找不到項目' });
-    res.status(500).json({ error: err.message });
+    safeError(res, err);
   }
 };
 
@@ -401,7 +408,7 @@ exports.deleteItem = async (req, res) => {
     // 若有實體檔案可選擇性刪除（此處保留，避免誤刪）
     res.json({ message: '已刪除' });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    safeError(res, err);
   }
 };
 
@@ -432,7 +439,7 @@ exports.serveFile = async (req, res) => {
     if (item.mimeType) res.setHeader('Content-Type', item.mimeType);
     res.sendFile(filePath);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    safeError(res, err);
   }
 };
 
@@ -464,7 +471,7 @@ exports.getFavorites = async (req, res) => {
     });
     res.json(favorites);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    safeError(res, err);
   }
 };
 
@@ -488,7 +495,7 @@ exports.addFavorite = async (req, res) => {
     res.status(201).json(fav);
   } catch (err) {
     if (err.code === 'P2002') return res.status(409).json({ error: '已在最愛清單中' });
-    res.status(500).json({ error: err.message });
+    safeError(res, err);
   }
 };
 
@@ -499,7 +506,7 @@ exports.removeFavorite = async (req, res) => {
     await prisma.userFavorite.deleteMany({ where: { userId, toolId } });
     res.json({ message: '已從最愛移除' });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    safeError(res, err);
   }
 };
 
@@ -518,6 +525,6 @@ exports.updateFavoriteFolder = async (req, res) => {
     });
     res.json(updated);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    safeError(res, err);
   }
 };
