@@ -159,14 +159,18 @@
         <el-form-item label="類型" required>
           <el-radio-group v-model="itemForm.itemType">
             <el-radio value="url">🔗 網址</el-radio>
+            <el-radio value="video_url">🎬 影片連結</el-radio>
             <el-radio value="pdf">📄 PDF</el-radio>
             <el-radio value="excel">📊 Excel</el-radio>
-            <el-radio value="video">🎥 影片</el-radio>
+            <el-radio value="video">🎥 影片檔</el-radio>
             <el-radio value="image">🖼️ 圖片</el-radio>
           </el-radio-group>
         </el-form-item>
         <el-form-item v-if="itemForm.itemType === 'url'" label="網址" required>
           <el-input v-model="itemForm.url" placeholder="https://..." />
+        </el-form-item>
+        <el-form-item v-else-if="itemForm.itemType === 'video_url'" label="影片連結" required>
+          <el-input v-model="itemForm.url" placeholder="https://www.youtube.com/..." />
         </el-form-item>
         <el-form-item v-else label="上傳檔案">
           <el-upload :auto-upload="false" :limit="1" :on-change="handleFileChange"
@@ -471,13 +475,14 @@ function acceptForType(type) {
 
 async function saveItem() {
   if (!itemForm.value.name) return ElMessage.warning('請填寫項目名稱')
-  if (itemForm.value.itemType === 'url' && !itemForm.value.url) return ElMessage.warning('請填寫網址')
+  const isUrlType = itemForm.value.itemType === 'url' || itemForm.value.itemType === 'video_url'
+  if (isUrlType && !itemForm.value.url) return ElMessage.warning('請填寫連結網址')
   saving.value = true
   try {
     const fd = new FormData()
     fd.append('name', itemForm.value.name)
     fd.append('itemType', itemForm.value.itemType)
-    if (itemForm.value.itemType === 'url') fd.append('url', itemForm.value.url)
+    if (isUrlType) fd.append('url', itemForm.value.url)
     else if (itemFile.value) fd.append('file', itemFile.value)
     if (itemForm.value.description) fd.append('description', itemForm.value.description)
     await api.post(`/resource-library/tools/${currentToolId.value}/items`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })

@@ -349,8 +349,9 @@ exports.createItem = async (req, res) => {
 
     let filePath = null, fileSize = null, mimeType = null;
 
-    if (itemType === 'url') {
-      if (!url) return res.status(400).json({ error: '請填寫網址' });
+    const isUrlType = itemType === 'url' || itemType === 'video_url';
+    if (isUrlType) {
+      if (!url) return res.status(400).json({ error: '請填寫連結網址' });
     } else {
       // 檔案上傳
       if (req.file) {
@@ -365,7 +366,7 @@ exports.createItem = async (req, res) => {
         toolId,
         name,
         itemType,
-        url: itemType === 'url' ? url : null,
+        url: isUrlType ? url : null,
         filePath,
         fileSize,
         mimeType,

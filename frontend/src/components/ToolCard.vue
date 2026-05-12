@@ -62,18 +62,18 @@ const props = defineProps({
 const emit = defineEmits(['toggle-fav','edit','delete','add-item','delete-item','open-url','download'])
 
 function handleClick(item) {
-  if (item.itemType === 'url') emit('open-url', item.url)
+  if (item.itemType === 'url' || item.itemType === 'video_url') emit('open-url', item.url)
   else emit('download', item)
 }
 
 function itemIcon(type) {
-  return { url: 'Link', pdf: 'Document', excel: 'Grid', video: 'VideoPlay', image: 'Picture', text: 'Memo' }[type] || 'Document'
+  return { url: 'Link', video_url: 'VideoPlay', pdf: 'Document', excel: 'Grid', video: 'VideoCamera', image: 'Picture', text: 'Memo' }[type] || 'Document'
 }
 function itemTypeLabel(type) {
-  return { url: '網址', pdf: 'PDF', excel: 'Excel', video: '影片', image: '圖片', text: '文字' }[type] || type
+  return { url: '網址', video_url: '影片連結', pdf: 'PDF', excel: 'Excel', video: '影片檔', image: '圖片', text: '文字' }[type] || type
 }
 function itemTagType(type) {
-  return { url: 'primary', pdf: 'danger', excel: 'success', video: 'warning', image: '', text: 'info' }[type] || ''
+  return { url: 'primary', video_url: 'danger', pdf: 'danger', excel: 'success', video: 'warning', image: '', text: 'info' }[type] || ''
 }
 </script>
 
