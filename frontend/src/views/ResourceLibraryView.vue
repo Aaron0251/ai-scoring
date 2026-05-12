@@ -609,7 +609,7 @@ async function removeFavorite(toolId) {
 }
 
 function openUrl(url) {
-  if (!url) return
+  if (!url) { ElMessage.warning('此項目尚未設定連結，請刪除後重新新增'); return }
   window.open(url.startsWith('http') ? url : 'https://' + url, '_blank')
 }
 </script>
