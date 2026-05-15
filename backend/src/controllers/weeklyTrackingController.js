@@ -17,7 +17,7 @@ function formatDate(date) {
 }
 
 async function getScenesWithFilter(divisionId, departmentId, sectionId) {
-  const where = { active: true };
+  const where = { active: true, status: { not: '暫停' }, maintainOrDevelop: { not: '作廢' } };
   if (sectionId) {
     where.sectionId = sectionId;
   } else if (departmentId) {

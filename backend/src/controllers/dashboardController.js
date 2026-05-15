@@ -232,7 +232,7 @@ async function getDivisionStats(allowedDeptIds) {
         where: deptWhere,
         include: {
           scenes: {
-            where: { active: true, status: { not: '暫定' } },
+            where: { active: true, status: { notIn: ['暫定', '暫停'] }, maintainOrDevelop: { not: '作廢' } },
             select: { status: true, originalHours: true, improvedHours: true, savingHoursMonthly: true, goLiveDate: true, progress: true },
           },
         },
@@ -275,7 +275,7 @@ async function getDivisionStats(allowedDeptIds) {
 async function getDevelopMethodPie(allowedDeptIds) {
   const methodCounts = await prisma.scene.groupBy({
     by: ['developMethod'],
-    where: sceneWhereByAccess(allowedDeptIds, { active: true, status: { not: '暫定' } }),
+    where: sceneWhereByAccess(allowedDeptIds, { active: true, status: { notIn: ['暫定', '暫停'] }, maintainOrDevelop: { not: '作廢' } }),
     _count: { id: true },
   });
   return methodCounts.filter(m => m.developMethod).map(m => ({ name: m.developMethod, value: m._count.id }));
@@ -283,7 +283,7 @@ async function getDevelopMethodPie(allowedDeptIds) {
 
 async function getEfficiencyGains(allowedDeptIds) {
   const scenes = await prisma.scene.findMany({
-    where: sceneWhereByAccess(allowedDeptIds, { active: true, status: { not: '暫定' } }),
+    where: sceneWhereByAccess(allowedDeptIds, { active: true, status: { notIn: ['暫定', '暫停'] }, maintainOrDevelop: { not: '作廢' } }),
     select: { id: true, itemNo: true, sceneName: true, originalHours: true, improvedHours: true, savingHoursMonthly: true, originalHeadcount: true, improvedHeadcount: true, priority: true, progress: true },
     orderBy: { itemNo: 'asc' },
     take: 30,
@@ -306,7 +306,7 @@ async function getEfficiencyGains(allowedDeptIds) {
 
 async function getTop5Scenes(allowedDeptIds) {
   const scenes = await prisma.scene.findMany({
-    where: sceneWhereByAccess(allowedDeptIds, { active: true, status: { not: '暫定' } }),
+    where: sceneWhereByAccess(allowedDeptIds, { active: true, status: { notIn: ['暫定', '暫停'] }, maintainOrDevelop: { not: '作廢' } }),
     select: { id: true, itemNo: true, sceneName: true, originalHours: true, improvedHours: true, savingHoursMonthly: true, originalHeadcount: true, improvedHeadcount: true, status: true, priority: true, progress: true },
     take: 50,
   });
@@ -333,7 +333,7 @@ async function getDepartmentDistribution(allowedDeptIds) {
         where: deptWhere,
         include: {
           scenes: {
-            where: { active: true, status: { not: '暫定' } },
+            where: { active: true, status: { notIn: ['暫定', '暫停'] }, maintainOrDevelop: { not: '作廢' } },
             select: { status: true },
           },
         },
@@ -363,7 +363,8 @@ async function getAlertList(allowedDeptIds) {
     where: {
       ...sceneWhereByAccess(allowedDeptIds),
       active: true,
-      status: { not: '暫定' },
+      status: { notIn: ['暫定', '暫停'] },
+      maintainOrDevelop: { not: '作廢' },
       OR: [
         { progress: { lt: 30 }, status: '進行中' },
         { note: { contains: 'IT' } },
@@ -390,7 +391,7 @@ async function getAlertList(allowedDeptIds) {
 
 async function getToolTreemap(allowedDeptIds) {
   const scenes = await prisma.scene.findMany({
-    where: sceneWhereByAccess(allowedDeptIds, { active: true, status: { not: '暫定' }, developToolDesc: { not: null } }),
+    where: sceneWhereByAccess(allowedDeptIds, { active: true, status: { notIn: ['暫定', '暫停'] }, maintainOrDevelop: { not: '作廢' }, developToolDesc: { not: null } }),
     select: { developToolDesc: true },
   });
   const toolCount = {};
@@ -407,7 +408,7 @@ async function getToolTreemap(allowedDeptIds) {
 }
 
 async function getKpiStats(allowedDeptIds) {
-  const sceneWhere = sceneWhereByAccess(allowedDeptIds, { active: true });
+  const sceneWhere = sceneWhereByAccess(allowedDeptIds, { active: true, status: { not: '暫停' }, maintainOrDevelop: { not: '作廢' } });
 
   const [totalScenes, completedScenes, inProgressScenes, configs] = await Promise.all([
     prisma.scene.count({ where: sceneWhere }),
