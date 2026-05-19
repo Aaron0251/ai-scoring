@@ -141,8 +141,8 @@ exports.getWeeklyTracking = async (req, res) => {
     const kpis = calculateSceneKPIs(scenes);
 
     // 本週進度變動：包含所有場景（含已完成），讓本週剛完成的也能顯示
-    // 停滯預警：只看進行中/規劃中，排除已完成與暫停
-    const stagnationScenes = scenes.filter(s => !['已完成', '暫停'].includes(s.status));
+    // 停滯預警：只看進行中，排除規劃中、已完成、暫停
+    const stagnationScenes = scenes.filter(s => s.status === '進行中');
 
     if (scenes.length === 0) {
       return res.json({
