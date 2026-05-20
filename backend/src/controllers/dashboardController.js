@@ -457,6 +457,16 @@ async function getKpiStats(allowedDeptIds) {
   const effectiveCount = effectiveScenes.length;
   const actualTimeSavedTotal = sumActualSavings(effectiveScenes.flatMap(s => s.actualSavings));
 
+  // ── 115年實際節省時數（已完成，依上線日推算到年底）────────
+  const actualSaved115 = allScenesForSaving
+    .filter(s => s.status === '已完成')
+    .reduce((sum, s) => {
+      const monthly = sceneMonthly(s);
+      if (monthly <= 0) return sum;
+      const refDate = s.goLiveDate ? new Date(s.goLiveDate) : today;
+      return sum + monthly * monthsIn115(refDate);
+    }, 0);
+
   // ── 人力釋放率（新邏輯）────────────────────────────────────
   // 分子：已上線（已完成 + goLiveDate）的 savingHoursMonthly 加總
   const onlineSavingHoursSum = allScenesForSaving
@@ -485,6 +495,7 @@ async function getKpiStats(allowedDeptIds) {
     estimatedTimeSaved,
     actualMonthlyAvg,
     annualizedSaved115,
+    actualSaved115,
     completionRate: totalScenes > 0 ? Math.round((completedScenes / totalScenes) * 100) : 0,
     effectiveCount,
     actualTimeSavedTotal,

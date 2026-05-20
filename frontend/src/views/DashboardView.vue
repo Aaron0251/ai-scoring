@@ -42,7 +42,7 @@
         <el-col :xs="24" :sm="5">
           <el-card class="kpi-card yellow">
             <div class="kpi-label">115年實際節省時數</div>
-            <div class="kpi-value">{{ Math.round((kpi.actualMonthlyAvg||0)*12).toLocaleString() }} <small>h</small></div>
+            <div class="kpi-value">{{ Math.round(kpi.actualSaved115||0).toLocaleString() }} <small>h</small></div>
             <div class="kpi-sub">實際月均 {{ (kpi.actualMonthlyAvg||0).toFixed(0) }} h</div>
             <el-progress :percentage="pctActual" :stroke-width="6" :color="pctActual >= 100 ? '#67c23a' : ''" :show-text="pctActual < 100" class="kpi-progress" />
           </el-card>
