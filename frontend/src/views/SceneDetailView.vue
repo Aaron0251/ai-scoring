@@ -125,8 +125,10 @@
                   <div v-if="!editing" class="field-value">{{ scene.developMethod || '-' }}</div>
                   <el-select v-else v-model="form.developMethod" clearable style="width:100%">
                     <el-option label="AI Agent" value="AI Agent" />
+                    <el-option label="Claude" value="Claude" />
+                    <el-option label="Gemini" value="Gemini" />
+                    <el-option label="NotebookLM" value="NotebookLM" />
                     <el-option label="系統開發" value="系統開發" />
-                    <el-option label="自行開發" value="自行開發" />
                     <el-option label="其他工具" value="其他工具" />
                   </el-select>
                 </div>

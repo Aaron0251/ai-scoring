@@ -21,7 +21,25 @@
       </div>
 
       <!-- ① 核心 KPI 總覽 -->
-      <div class="section-title">核心 KPI 總覽</div>
+      <div class="section-title-row">
+        <div class="section-title">核心 KPI 總覽</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:13px;color:#606266;white-space:nowrap">開發方式</span>
+          <el-select
+            v-model="selectedMethods"
+            multiple
+            collapse-tags
+            collapse-tags-tooltip
+            placeholder="全選"
+            clearable
+            style="width:200px"
+            size="small"
+            @change="load"
+          >
+            <el-option v-for="m in methodOptions" :key="m" :label="m" :value="m" />
+          </el-select>
+        </div>
+      </div>
       <el-row :gutter="12" class="kpi-row">
         <el-col :xs="24" :sm="4">
           <el-card class="kpi-card">
@@ -253,6 +271,8 @@ const loading = ref(false)
 const kpi = ref({})
 const allDivisions = ref([])   // 完整本部清單（供切換用）
 const selectedDivisionId = ref(null)  // null = 全部
+const selectedMethods = ref([])       // 開發方式複選，空 = 全選
+const methodOptions = ['AI Agent', 'Claude', 'Gemini', 'NotebookLM', '系統開發', '其他工具']
 const divisions = ref([])
 const pieData = ref([])
 const efficiencyGains = ref([])
@@ -384,6 +404,7 @@ async function load() {
   try {
     const params = {}
     if (selectedDivisionId.value) params.divisionId = selectedDivisionId.value
+    if (selectedMethods.value.length > 0) params.developMethods = selectedMethods.value.join(',')
     const res = await dashboardApi.summary(params)
     kpi.value = res.data.kpi || {}
     divisions.value = res.data.divisions || []
@@ -418,7 +439,8 @@ onMounted(async () => {
 .dashboard { padding: 0 0 40px; }
 .dashboard-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
 .page-title { margin: 0; font-size: 22px; font-weight: 700; }
-.section-title { font-size: 16px; font-weight: 600; color: #303133; margin: 24px 0 12px; padding-left: 10px; border-left: 4px solid #409eff; }
+.section-title-row { display: flex; align-items: center; justify-content: space-between; margin: 24px 0 12px; flex-wrap: wrap; gap: 8px; }
+.section-title { font-size: 16px; font-weight: 600; color: #303133; padding-left: 10px; border-left: 4px solid #409eff; margin: 0; }
 .kpi-row { margin-bottom: 16px; }
 .kpi-card { text-align: center; }
 .kpi-card.green :deep(.el-card__body) { background: #f0f9eb; }

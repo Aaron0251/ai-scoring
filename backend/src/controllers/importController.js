@@ -17,6 +17,31 @@ const upload = multer({
   },
 });
 
+// 開發方式正規化：統一大小寫與常見別名 → 標準 6 個選項
+const DEVELOP_METHOD_MAP = {
+  'ai agent':    'AI Agent',
+  'aiagent':     'AI Agent',
+  'claude':      'Claude',
+  'gemini':      'Gemini',
+  'notebooklm':  'NotebookLM',
+  'notebook lm': 'NotebookLM',
+  '系統開發':    '系統開發',
+  '自行開發':    '其他工具',
+  '其他工具':    '其他工具',
+};
+const VALID_METHODS = new Set(['AI Agent', 'Claude', 'Gemini', 'NotebookLM', '系統開發', '其他工具']);
+
+function normalizeMethod(raw) {
+  if (!raw) return null;
+  const trimmed = raw.trim();
+  const key = trimmed.toLowerCase();
+  if (DEVELOP_METHOD_MAP[key]) return DEVELOP_METHOD_MAP[key];
+  // 若已是標準值（含大小寫完全相符），直接回傳
+  if (VALID_METHODS.has(trimmed)) return trimmed;
+  // 找不到對應，保留原值（不強制失敗，避免阻擋匯入）
+  return trimmed;
+}
+
 // 欄位標題 → 欄位名稱（順序與匯出 EXCEL 完全一致）
 const COL_MAP = {
   '場景編號':               'itemNo',
@@ -311,7 +336,7 @@ exports.importExcel = async (req, res) => {
           sceneName,
           maintainOrDevelop: get('maintainOrDevelop') || null,
           itAssisted: parseItAssisted(get('itAssisted')),
-          developMethod: get('developMethod') || null,
+          developMethod: normalizeMethod(get('developMethod')),
           agentCategory: get('agentCategory') || null,
           developToolDesc: get('developToolDesc') || null,
           inputDesc: get('inputDesc') || null,
@@ -350,7 +375,7 @@ exports.importExcel = async (req, res) => {
         if (get('maintainOrDevelop'))             sceneDataPatch.maintainOrDevelop = get('maintainOrDevelop');
         const itVal = parseItAssisted(get('itAssisted'));
         if (itVal !== null)                       sceneDataPatch.itAssisted       = itVal;
-        if (get('developMethod'))                 sceneDataPatch.developMethod    = get('developMethod');
+        if (get('developMethod'))                 sceneDataPatch.developMethod    = normalizeMethod(get('developMethod'));
         if (get('agentCategory'))                 sceneDataPatch.agentCategory    = get('agentCategory');
         if (get('developToolDesc'))               sceneDataPatch.developToolDesc  = get('developToolDesc');
         if (get('inputDesc'))                     sceneDataPatch.inputDesc        = get('inputDesc');
