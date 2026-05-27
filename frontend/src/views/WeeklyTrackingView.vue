@@ -223,9 +223,7 @@
                       <strong>最新執行紀錄：</strong>
                       <div>{{ formatDate(item.lastLog.logDate) }} - {{ item.lastLog.content }}</div>
                     </div>
-                    <div v-if="item.remarks" class="progress-remarks">
-                      <strong>進度備註：</strong>{{ item.remarks }}
-                    </div>
+                    <!-- 進度備註已隱藏 -->
                     <div class="department-info">
                       <span v-if="item.division">{{ item.division }}</span>
                       <span v-if="item.department"> / {{ item.department }}</span>
@@ -264,9 +262,7 @@
                   <strong>最新執行紀錄：</strong>
                   <div>{{ formatDate(item.lastLog.logDate) }} - {{ item.lastLog.content }}</div>
                 </div>
-                <div v-if="item.remarks" class="progress-remarks">
-                  <strong>進度備註：</strong>{{ item.remarks }}
-                </div>
+                <!-- 進度備註已隱藏 -->
                 <div class="department-info">
                   <span v-if="item.division">{{ item.division }}</span>
                   <span v-if="item.department"> / {{ item.department }}</span>
