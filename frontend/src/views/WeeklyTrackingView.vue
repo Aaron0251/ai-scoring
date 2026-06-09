@@ -80,13 +80,18 @@
 
     <!-- KPI 卡片 -->
     <div class="kpi-section">
-      <el-row :gutter="16" class="kpi-row">
-        <el-col :xs="24" :sm="6">
+      <div class="kpi-cards-grid">
+
+        <!-- 總場景數 -->
+        <div class="kpi-col">
           <el-card class="kpi-card">
             <div class="kpi-label">總場景數</div>
             <div class="kpi-value">{{ data.kpis?.totalScenes || 0 }}</div>
-            <!-- 本週有更新的場景數 / 總場景數 -->
             <div class="kpi-sub">本週有更新 {{ data.weeklyProgressItems?.length || 0 }} 個</div>
+            <div class="kpi-sub kpi-sub-counts">
+              <span class="kpi-sub-done">✅ 上線 {{ data.kpis?.completedCount || 0 }} 個</span>
+              <span class="kpi-sub-progress">🔄 進行中 {{ data.kpis?.inProgressCount || 0 }} 個</span>
+            </div>
             <el-progress
               :percentage="Math.min(Math.round(((data.weeklyProgressItems?.length||0)/(data.kpis?.totalScenes||1))*100),100)"
               :stroke-width="6"
@@ -94,35 +99,60 @@
               :show-text="Math.min(Math.round(((data.weeklyProgressItems?.length||0)/(data.kpis?.totalScenes||1))*100),100) < 100"
               class="kpi-progress" />
           </el-card>
-        </el-col>
-        <el-col :xs="24" :sm="6">
+        </div>
+
+        <!-- 115年預估節省時數 -->
+        <div class="kpi-col">
           <el-card class="kpi-card orange">
             <div class="kpi-label">115年預估節省時數</div>
             <div class="kpi-value">{{ Math.round(data.kpis?.savingHours || 0).toLocaleString() }} <small>h</small></div>
-            <div class="kpi-sub" style="display:flex;justify-content:space-between">
-              <span>預估月均 {{ (data.kpis?.estimatedMonthlyAvg || 0).toFixed(0) }} h</span>
-              <span>實際月均 {{ (data.kpis?.actualMonthlyAvg || 0).toFixed(0) }} h</span>
-            </div>
+            <div class="kpi-sub">預估月均 {{ (data.kpis?.estimatedMonthlyAvg || 0).toFixed(0) }} h</div>
             <el-progress :percentage="100" :stroke-width="6" color="#67c23a" :show-text="false" class="kpi-progress" />
           </el-card>
-        </el-col>
-        <el-col :xs="24" :sm="6">
+        </div>
+
+        <!-- 115年實際節省時數 -->
+        <div class="kpi-col">
+          <el-card class="kpi-card yellow">
+            <div class="kpi-label">115年實際節省時數</div>
+            <div class="kpi-value">{{ Math.round(data.kpis?.actualSaved115 || 0).toLocaleString() }} <small>h</small></div>
+            <div class="kpi-sub">實際月均 {{ (data.kpis?.actualMonthlyAvg || 0).toFixed(0) }} h</div>
+            <div v-if="(data.kpis?.refiningCount || 0) > 0" class="kpi-sub kpi-refining">
+              🔁 持續優化 {{ data.kpis.refiningCount }} 個
+            </div>
+            <div v-if="(data.kpis?.savingsIncreasedTotal || 0) > 0" class="kpi-sub kpi-savings-up">
+              ⬆ 節省工時 +{{ data.kpis.savingsIncreasedTotal.toFixed(1) }} h/月
+            </div>
+            <el-progress
+              :percentage="Math.min(Math.round(((data.kpis?.actualSaved115||0)/(data.kpis?.savingHours||1))*100),100)"
+              :stroke-width="6"
+              :color="Math.min(Math.round(((data.kpis?.actualSaved115||0)/(data.kpis?.savingHours||1))*100),100) >= 100 ? '#67c23a' : ''"
+              :show-text="Math.min(Math.round(((data.kpis?.actualSaved115||0)/(data.kpis?.savingHours||1))*100),100) < 100"
+              class="kpi-progress" />
+          </el-card>
+        </div>
+
+        <!-- 平均進度 -->
+        <div class="kpi-col">
           <el-card class="kpi-card blue">
             <div class="kpi-label">平均進度</div>
             <div class="kpi-value">{{ data.kpis?.avgProgress || 0 }} <small>%</small></div>
             <div class="kpi-sub">本週追蹤場景 {{ data.weeklyProgressItems?.length || 0 }} 個有更新</div>
             <el-progress :percentage="data.kpis?.avgProgress || 0" :stroke-width="6" :color="(data.kpis?.avgProgress||0) >= 100 ? '#67c23a' : ''" :show-text="(data.kpis?.avgProgress||0) < 100" class="kpi-progress" />
           </el-card>
-        </el-col>
-        <el-col :xs="24" :sm="6">
+        </div>
+
+        <!-- 人力釋放率 -->
+        <div class="kpi-col">
           <el-card class="kpi-card green">
             <div class="kpi-label">人力釋放率</div>
             <div class="kpi-value">{{ data.kpis?.humanReleaseRate || 0 }} <small>%</small></div>
             <div class="kpi-sub">節省人數 {{ Number(data.kpis?.headcountSaved||0).toFixed(1) }} 人</div>
             <el-progress :percentage="data.kpis?.humanReleaseRate || 0" :stroke-width="6" :color="(data.kpis?.humanReleaseRate||0) >= 100 ? '#67c23a' : ''" :show-text="(data.kpis?.humanReleaseRate||0) < 100" class="kpi-progress" />
           </el-card>
-        </el-col>
-      </el-row>
+        </div>
+
+      </div>
     </div>
 
     <!-- 圖表區域（暫時隱藏：節省時數分析各部門對比 & Top5） -->
@@ -206,6 +236,8 @@
                       <div class="scene-id">{{ item.itemNo }}</div>
                       <el-tag size="small" :type="getPriorityType(item.priority)">{{ item.priority }}</el-tag>
                       <el-tag size="small" type="info">{{ item.status }}</el-tag>
+                      <span v-if="item.isRefining" class="card-badge card-badge-refining">🔁 持續優化</span>
+                      <span v-if="item.savingsDelta" class="card-badge card-badge-savings">⬆ 節省工時 +{{ item.savingsDelta }} h/月</span>
                     </div>
                     <div class="scene-name">【{{ item.sceneName }}】</div>
                     <div class="progress-info">
@@ -245,6 +277,7 @@
                   <div class="scene-id">{{ item.itemNo }}</div>
                   <el-tag size="small" :type="getPriorityType(item.priority)">{{ item.priority }}</el-tag>
                   <el-tag size="small" type="info">{{ item.status }}</el-tag>
+                  <span v-if="item.isRefining" class="card-badge card-badge-refining">🔁 持續優化</span>
                 </div>
                 <div class="scene-name">【{{ item.sceneName }}】</div>
                 <div class="progress-info">
@@ -267,6 +300,9 @@
                   <span v-if="item.division">{{ item.division }}</span>
                   <span v-if="item.department"> / {{ item.department }}</span>
                   <span v-if="item.section"> / {{ item.section }}</span>
+                </div>
+                <div v-if="item.savingsDelta" class="card-savings-row">
+                  <span class="card-badge card-badge-savings">⬆ 節省工時 +{{ item.savingsDelta }} h/月</span>
                 </div>
                 <div class="action-buttons">
                   <el-button type="primary" size="small" @click="goToSceneDetail(item.sceneId)">查看詳情</el-button>
@@ -802,16 +838,46 @@ onMounted(async () => {
   margin-bottom: 20px;
 }
 
-.kpi-row { margin-bottom: 16px; }
-.kpi-card { text-align: center; margin-bottom: 12px; }
-.kpi-card.green :deep(.el-card__body) { background: #f0f9eb; }
-.kpi-card.blue  :deep(.el-card__body) { background: #ecf5ff; }
+/* 5欄等高 flex 布局 */
+.kpi-cards-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: stretch;
+  margin-bottom: 16px;
+}
+.kpi-col {
+  flex: 1 1 160px;
+  min-width: 160px;
+  display: flex;
+  flex-direction: column;
+}
+.kpi-col > .el-card { flex: 1; }
+
+/* 等高：card body 用 flex column，progress 貼底 */
+.kpi-card :deep(.el-card__body) {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  box-sizing: border-box;
+}
+.kpi-progress { margin-top: auto; padding-top: 8px; }
+
+.kpi-card { text-align: center; }
+.kpi-card.green  :deep(.el-card__body) { background: #f0f9eb; }
+.kpi-card.blue   :deep(.el-card__body) { background: #ecf5ff; }
 .kpi-card.orange :deep(.el-card__body) { background: #fdf6ec; }
+.kpi-card.yellow :deep(.el-card__body) { background: #fffbe6; }
+.kpi-card.yellow .kpi-value { color: #d48806; }
 .kpi-label { font-size: 13px; color: #909399; margin-bottom: 8px; }
 .kpi-value { font-size: 36px; font-weight: 700; color: #303133; line-height: 1; }
 .kpi-value small { font-size: 16px; font-weight: 400; color: #606266; }
-.kpi-sub { font-size: 12px; color: #909399; margin: 6px 0 8px; }
-.kpi-progress { margin-top: 4px; }
+.kpi-sub { font-size: 12px; color: #909399; margin: 6px 0 4px; }
+.kpi-sub-counts { display: flex; gap: 10px; justify-content: center; margin-top: 2px; margin-bottom: 4px; }
+.kpi-sub-done { color: #67c23a; font-weight: 500; }
+.kpi-sub-progress { color: #409eff; font-weight: 500; }
+.kpi-refining { color: #7c3aed; font-weight: 500; }
+.kpi-savings-up { color: #059669; font-weight: 500; }
 
 /* 卡片標題 */
 .card-header {
@@ -989,7 +1055,18 @@ onMounted(async () => {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+  align-items: center;
 }
+.card-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+.card-badge-refining { background: #ede9fe; color: #7c3aed; }
+.card-badge-savings  { background: #d1fae5; color: #059669; }
+.card-savings-row    { margin: 6px 0 4px; }
 
 /* 編輯彈窗 */
 .edit-form {

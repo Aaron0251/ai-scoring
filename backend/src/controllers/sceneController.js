@@ -185,11 +185,57 @@ exports.update = async (req, res) => {
     data.itAssisted = body.itAssisted !== null ? Boolean(body.itAssisted) : null;
   }
 
+  // ── 狀態首次變為「已完成」時，自動記錄 completedAt / baselineSavingHours / goLiveDate ──
+  if (body.status === '已完成' && !oldScene.completedAt) {
+    const now = new Date();
+    data.completedAt = now;
+    data.baselineSavingHours = oldScene.savingHoursMonthly ?? null;
+    // goLiveDate 若尚未填入，預帶今天
+    if (!oldScene.goLiveDate && !data.goLiveDate) {
+      data.goLiveDate = now;
+    }
+  }
+
   const scene = await prisma.scene.update({
     where: { id },
     data,
     include: { department: { include: { division: true } }, section: true, benefits: true },
   });
+
+  // ── 資源庫卡片管理 ──────────────────────────────────────
+  // 狀態從非「已完成」→「已完成」：建立或復原 ResourceTool 卡片
+  if (body.status === '已完成' && oldScene.status !== '已完成') {
+    const existingTool = await prisma.resourceTool.findFirst({ where: { sceneId: id } });
+    if (!existingTool) {
+      await prisma.resourceTool.create({
+        data: {
+          name:         scene.sceneName,
+          description:  scene.agentCategory ?? null,   // 預填 AI Agent用途分類
+          sceneId:      id,
+          divisionId:   scene.department?.division?.id ?? null,
+          departmentId: scene.departmentId,
+          sectionId:    scene.sectionId ?? null,
+          categoryId:   null,
+          active:       true,
+          createdBy:    req.user.username,
+          sortOrder:    0,
+        },
+      });
+    } else {
+      await prisma.resourceTool.update({ where: { id: existingTool.id }, data: { active: true } });
+    }
+  }
+  // 狀態從「已完成」→ 其他：隱藏卡片（資料保留）
+  if (oldScene.status === '已完成' && body.status && body.status !== '已完成') {
+    await prisma.resourceTool.updateMany({ where: { sceneId: id }, data: { active: false } });
+  }
+  // 場景名稱變更時同步卡片標題（僅場景綁定卡）
+  if (body.sceneName && body.sceneName !== oldScene.sceneName) {
+    await prisma.resourceTool.updateMany({
+      where: { sceneId: id },
+      data: { name: body.sceneName },
+    });
+  }
 
   // 進度變更時記錄歷史
   if (oldScene && body.progress !== undefined && oldScene.progress !== scene.progress) {

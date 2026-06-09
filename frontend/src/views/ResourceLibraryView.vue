@@ -10,7 +10,7 @@
         </div>
         <div class="header-actions" v-if="canEdit">
           <el-button type="primary" @click="openToolDialog()">
-            <el-icon><Plus /></el-icon> 新增工具卡片
+            <el-icon><Plus /></el-icon> 手動新增卡片
           </el-button>
           <el-button @click="openCatManage">
             <el-icon><Setting /></el-icon> 管理分類
@@ -26,7 +26,7 @@
         @update-folder="fetchFavorites"
       />
 
-      <!-- ── 篩選列（三層聯動）── -->
+      <!-- ── 篩選列 ── -->
       <div class="filter-bar">
         <el-input v-model="searchText" placeholder="搜尋工具名稱..." clearable style="width:200px">
           <template #prefix><el-icon><Search /></el-icon></template>
@@ -52,9 +52,9 @@
       </div>
 
       <!-- ── 無資料 ── -->
-      <el-empty v-else-if="!filteredDivGroups.length" description="目前尚無資源，請先新增工具卡片" />
+      <el-empty v-else-if="!filteredDivGroups.length" description="目前尚無資源" />
 
-      <!-- ── 本部分組（可折疊）── -->
+      <!-- ── 本部分組 ── -->
       <div v-else class="div-sections">
         <div v-for="divGroup in filteredDivGroups" :key="divGroup.id" class="div-section">
 
@@ -62,20 +62,20 @@
           <div class="div-header" @click="toggleDiv(divGroup.id)">
             <el-icon class="div-arrow" :class="{ open: openDivs[divGroup.id] }"><ArrowRight /></el-icon>
             <span class="div-name">{{ divGroup.name }}</span>
-            <span class="div-badge">{{ divGroup.totalTools }} 項工具</span>
+            <span class="div-badge">{{ divGroup.totalTools }} 張</span>
           </div>
 
           <!-- 展開內容 -->
           <div v-if="openDivs[divGroup.id]" class="div-body">
+
+            <!-- 各分類（置頂，按 sortOrder 排序） -->
             <div v-for="cat in divGroup.categories" :key="cat.id" class="category-section">
-              <div class="category-header">
+              <div class="category-header" @click="toggleCat(cat.id)" style="cursor:pointer">
+                <el-icon class="cat-arrow" :class="{ open: openCats[cat.id] !== false }"><ArrowRight /></el-icon>
                 <span class="category-name">{{ cat.name }}</span>
-                <span class="category-org-tag">
-                  {{ cat.section?.name || cat.department?.name || cat.division?.name }}
-                </span>
                 <span class="category-count">{{ cat.tools.length }} 張</span>
               </div>
-              <div class="tools-grid">
+              <div v-if="openCats[cat.id] !== false" class="tools-grid">
                 <ToolCard
                   v-for="tool in cat.tools"
                   :key="tool.id"
@@ -91,54 +91,91 @@
                 />
               </div>
             </div>
-          </div>
 
+            <!-- 未分類（置底） -->
+            <div v-if="divGroup.uncategorized?.length" class="category-section">
+              <div class="category-header" @click="toggleCat('uncat-' + divGroup.id)" style="cursor:pointer">
+                <el-icon class="cat-arrow" :class="{ open: openCats['uncat-' + divGroup.id] !== false }"><ArrowRight /></el-icon>
+                <span class="category-name uncat-name">未分類</span>
+                <span class="category-count">{{ divGroup.uncategorized.length }} 張</span>
+              </div>
+              <div v-if="openCats['uncat-' + divGroup.id] !== false" class="tools-grid">
+                <ToolCard
+                  v-for="tool in divGroup.uncategorized"
+                  :key="tool.id"
+                  :tool="tool"
+                  :can-edit="canEdit"
+                  @toggle-fav="toggleFavorite"
+                  @edit="openToolDialog"
+                  @delete="deleteTool"
+                  @add-item="openItemDialog"
+                  @delete-item="deleteItem"
+                  @open-url="openUrl"
+                  @download="downloadItem"
+                />
+              </div>
+            </div>
+
+          </div>
         </div>
       </div>
     </div>
 
     <!-- ══ 工具卡片 Dialog ══ -->
-    <el-dialog v-model="toolDialogVisible" :title="editingTool ? '編輯工具卡片' : '新增工具卡片'"
+    <el-dialog v-model="toolDialogVisible" :title="editingTool ? '編輯卡片' : '手動新增卡片'"
       width="520px" destroy-on-close>
-      <el-form :model="toolForm" label-width="80px">
-        <el-form-item label="工具名稱" required>
-          <el-input v-model="toolForm.name" placeholder="如：蝦皮店數更新工具" />
+      <el-form :model="toolForm" label-width="90px">
+
+        <!-- 場景關聯提示（唯讀） -->
+        <el-form-item v-if="editingTool?.sceneId" label="關聯場景">
+          <div class="scene-link-info">
+            <el-tag type="success" effect="light">🔗 {{ editingTool.scene?.itemNo }}</el-tag>
+            <span class="scene-link-name">{{ editingTool.scene ? '' : '' }}（卡片名稱跟隨場景名稱自動同步）</span>
+          </div>
+        </el-form-item>
+
+        <el-form-item label="卡片名稱" required>
+          <el-input v-model="toolForm.name" placeholder="如：蝦皮店數更新工具"
+            :disabled="!!editingTool?.sceneId" />
+          <div v-if="editingTool?.sceneId" class="hint-text">名稱來自場景，如需修改請至場景管理更新</div>
         </el-form-item>
         <el-form-item label="說明">
-          <el-input v-model="toolForm.description" type="textarea" :rows="2" />
+          <el-input v-model="toolForm.description" type="textarea" :rows="2"
+            :placeholder="editingTool?.sceneId ? 'AI Agent用途分類（可修改）' : '可補充說明'" />
         </el-form-item>
-        <!-- 三層組織選擇 -->
-        <el-form-item label="本部">
-          <el-select v-model="toolForm.divisionId" placeholder="請選擇本部" style="width:100%"
-            :clearable="!myDivisionId" :disabled="!!myDivisionId"
-            @change="toolForm.departmentId = null; toolForm.sectionId = null; toolForm.categoryId = null">
-            <el-option v-for="d in divisions" :key="d.id" :label="d.name" :value="d.id" />
+        <!-- 三層組織選擇（手動新增才顯示） -->
+        <template v-if="!editingTool?.sceneId">
+          <el-form-item label="本部">
+            <el-select v-model="toolForm.divisionId" placeholder="請選擇本部" style="width:100%"
+              :clearable="!myDivisionId" :disabled="!!myDivisionId"
+              @change="toolForm.departmentId = null; toolForm.sectionId = null; toolForm.categoryId = null">
+              <el-option v-for="d in divisions" :key="d.id" :label="d.name" :value="d.id" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="部門">
+            <el-select v-model="toolForm.departmentId" placeholder="（可選）" clearable style="width:100%"
+              :disabled="!toolForm.divisionId"
+              @change="toolForm.sectionId = null; toolForm.categoryId = null">
+              <el-option v-for="d in deptsByDivision(toolForm.divisionId)" :key="d.id" :label="d.name" :value="d.id" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="課別">
+            <el-select v-model="toolForm.sectionId" placeholder="（可選）" clearable style="width:100%"
+              :disabled="!toolForm.departmentId" @change="toolForm.categoryId = null">
+              <el-option v-for="s in sectionsByDept(toolForm.departmentId)" :key="s.id" :label="s.name" :value="s.id" />
+            </el-select>
+          </el-form-item>
+        </template>
+        <el-form-item label="分類">
+          <el-select v-model="toolForm.categoryId" placeholder="（可選，留空則放入未分類）"
+            style="width:100%" clearable :disabled="!toolForm.divisionId && !editingTool?.sceneId">
+            <el-option
+              v-for="cat in categoriesForTool"
+              :key="cat.id"
+              :label="cat.name"
+              :value="cat.id"
+            />
           </el-select>
-        </el-form-item>
-        <el-form-item label="部門">
-          <el-select v-model="toolForm.departmentId" placeholder="（可選）" clearable style="width:100%"
-            :disabled="!toolForm.divisionId"
-            @change="toolForm.sectionId = null; toolForm.categoryId = null">
-            <el-option v-for="d in deptsByDivision(toolForm.divisionId)" :key="d.id" :label="d.name" :value="d.id" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="課別">
-          <el-select v-model="toolForm.sectionId" placeholder="（可選）" clearable style="width:100%"
-            :disabled="!toolForm.departmentId"
-            @change="toolForm.categoryId = null">
-            <el-option v-for="s in sectionsByDept(toolForm.departmentId)" :key="s.id" :label="s.name" :value="s.id" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="分類" required>
-          <el-select v-model="toolForm.categoryId" placeholder="請先選擇組織層級" style="width:100%"
-            :disabled="!toolForm.divisionId">
-            <el-option v-for="cat in categoriesForTool" :key="cat.id"
-              :label="`${cat.name}（${cat.section?.name || cat.department?.name || cat.division?.name}）`"
-              :value="cat.id" />
-          </el-select>
-          <div v-if="toolForm.divisionId && !categoriesForTool.length" class="hint-text">
-            此組織層級尚無分類，請先至「管理分類」新增
-          </div>
         </el-form-item>
         <el-form-item label="排序">
           <el-input-number v-model="toolForm.sortOrder" :min="0" :max="999" />
@@ -191,35 +228,36 @@
     <!-- ══ 管理分類 Dialog ══ -->
     <el-dialog v-model="catManageVisible" title="管理分類" width="560px" destroy-on-close>
       <div class="cat-manage">
-        <!-- 三層組織選擇 -->
+        <!-- 只選本部 -->
         <div class="cat-org-row">
           <el-select v-model="catForm.divisionId" placeholder="選擇本部" style="flex:1"
             :disabled="!!myDivisionId"
-            @change="catForm.departmentId = null; catForm.sectionId = null; loadCatList()">
-            <el-option v-for="d in divisions" :key="d.id" :label="d.name" :value="d.id" />
-          </el-select>
-          <el-select v-model="catForm.departmentId" placeholder="部門（可選）" style="flex:1"
-            clearable :disabled="!catForm.divisionId"
-            @change="catForm.sectionId = null; loadCatList()">
-            <el-option v-for="d in deptsByDivision(catForm.divisionId)" :key="d.id" :label="d.name" :value="d.id" />
-          </el-select>
-          <el-select v-model="catForm.sectionId" placeholder="課別（可選）" style="flex:1"
-            clearable :disabled="!catForm.departmentId"
             @change="loadCatList()">
-            <el-option v-for="s in sectionsByDept(catForm.departmentId)" :key="s.id" :label="s.name" :value="s.id" />
+            <el-option v-for="d in divisions" :key="d.id" :label="d.name" :value="d.id" />
           </el-select>
         </div>
 
         <template v-if="catForm.divisionId">
+          <!-- 新增分類 -->
           <div class="cat-add-row" style="margin-top:14px">
             <el-input v-model="newCatName" placeholder="輸入新分類名稱" clearable style="flex:1" />
+            <el-input-number v-model="newCatSortOrder" :min="0" :max="999"
+              placeholder="排序" style="width:110px" controls-position="right" />
             <el-button type="primary" @click="addCategory">新增</el-button>
           </div>
-          <el-table :data="catManageList" size="small" style="margin-top:12px" empty-text="此層級尚無分類">
+          <!-- 分類清單 -->
+          <el-table :data="catManageList" size="small" style="margin-top:12px" empty-text="此本部尚無分類">
             <el-table-column prop="name" label="分類名稱" />
-            <el-table-column label="層級" width="120">
+            <el-table-column label="排序" width="110" align="center">
               <template #default="{ row }">
-                {{ row.section?.name || row.department?.name || row.division?.name }}
+                <el-input-number
+                  v-model="row.sortOrder"
+                  :min="0" :max="999"
+                  size="small"
+                  controls-position="right"
+                  style="width:90px"
+                  @change="updateCategoryOrder(row.id, row.sortOrder)"
+                />
               </template>
             </el-table-column>
             <el-table-column label="操作" width="70" align="center">
@@ -253,39 +291,44 @@ const auth = useAuthStore()
 const canEdit = computed(() => auth.isAdmin || auth.isManager)
 
 // ── 原始資料 ──────────────────────────────────
-const loading = ref(false)
-const saving  = ref(false)
-const divGroups   = ref([])   // API 回傳：[ { id, name, categories: [...] } ]
+const loading  = ref(false)
+const saving   = ref(false)
+const divGroups   = ref([])
 const divisions   = ref([])
 const departments = ref([])
 const sections    = ref([])
-const categories  = ref([])   // flat，供 Dialog 用
+const categories  = ref([])
 const favorites   = ref([])
 
 // ── 篩選 ──────────────────────────────────────
-const searchText    = ref('')
+const searchText     = ref('')
 const filterDivision = ref(null)
 const filterDept     = ref(null)
 const filterSection  = ref(null)
 
-// 帳號所屬組織（登入時已綁定）
 const myDivisionId   = auth.user?.divisionId   ?? null
 const myDepartmentId = auth.user?.departmentId ?? null
 const mySectionId    = auth.user?.sectionId    ?? null
 
-// 本部折疊狀態
+// 本部折疊狀態（預設展開）
 const openDivs = ref({})
 
 function toggleDiv(id) {
   openDivs.value[id] = !openDivs.value[id]
 }
 
-// 初始化新出現的本部為折疊
 watch(divGroups, (groups) => {
   groups.forEach(g => {
-    if (openDivs.value[g.id] === undefined) openDivs.value[g.id] = false
+    if (openDivs.value[g.id] === undefined) openDivs.value[g.id] = true
   })
 }, { immediate: true })
+
+// 分類折疊狀態（預設展開）
+const openCats = ref({})
+
+function toggleCat(key) {
+  openCats.value[key] = !openCats.value[key]
+}
 
 // ── 組織層級輔助 ──────────────────────────────
 function deptsByDivision(divId) {
@@ -299,14 +342,25 @@ function sectionsByDept(deptId) {
 
 // ── 篩選後的本部分組 ──────────────────────────
 const filteredDivGroups = computed(() => {
+  const matchTool = (tool) => {
+    const matchSearch = !searchText.value ||
+      tool.name.toLowerCase().includes(searchText.value.toLowerCase()) ||
+      (tool.scene?.itemNo || '').toLowerCase().includes(searchText.value.toLowerCase())
+    const matchDept    = !filterDept.value    || tool.departmentId === filterDept.value
+    const matchSection = !filterSection.value || tool.sectionId    === filterSection.value
+    return matchSearch && matchDept && matchSection
+  }
+
   return divGroups.value.map(div => {
-    // 若有選本部篩選且不符 → 整個本部隱藏
     if (filterDivision.value && div.id !== filterDivision.value) return null
 
-    const cats = div.categories.map(cat => {
+    const uncategorized = (div.uncategorized || []).filter(matchTool)
+
+    const cats = (div.categories || []).map(cat => {
       const tools = cat.tools.filter(tool => {
         const matchSearch = !searchText.value ||
-          tool.name.toLowerCase().includes(searchText.value.toLowerCase())
+          tool.name.toLowerCase().includes(searchText.value.toLowerCase()) ||
+          (tool.scene?.itemNo || '').toLowerCase().includes(searchText.value.toLowerCase())
         const matchDept    = !filterDept.value    || tool.departmentId === filterDept.value    || cat.departmentId === filterDept.value
         const matchSection = !filterSection.value || tool.sectionId    === filterSection.value || cat.sectionId    === filterSection.value
         return matchSearch && matchDept && matchSection
@@ -314,20 +368,20 @@ const filteredDivGroups = computed(() => {
       return { ...cat, tools }
     }).filter(cat => cat.tools.length > 0)
 
-    if (!cats.length) return null
+    if (!uncategorized.length && !cats.length) return null
+
     return {
       ...div,
-      totalTools: cats.reduce((sum, c) => sum + c.tools.length, 0),
+      uncategorized,
+      totalTools: uncategorized.length + cats.reduce((sum, c) => sum + c.tools.length, 0),
       categories: cats,
     }
   }).filter(Boolean)
 })
 
-// 搜尋有結果時自動展開相關本部
+// 搜尋/篩選時自動展開
 watch(searchText, (val) => {
-  if (val) {
-    filteredDivGroups.value.forEach(g => { openDivs.value[g.id] = true })
-  }
+  if (val) filteredDivGroups.value.forEach(g => { openDivs.value[g.id] = true })
 })
 watch([filterDivision, filterDept, filterSection], () => {
   filteredDivGroups.value.forEach(g => { openDivs.value[g.id] = true })
@@ -366,8 +420,6 @@ async function fetchFavorites() {
 onMounted(async () => {
   await fetchAll()
   await fetchFavorites()
-
-  // 依帳號綁定的組織層級，自動預設篩選條件
   if (myDivisionId) {
     filterDivision.value = myDivisionId
     if (myDepartmentId) {
@@ -380,56 +432,63 @@ onMounted(async () => {
 // ── 工具卡片 Dialog ───────────────────────────
 const toolDialogVisible = ref(false)
 const editingTool = ref(null)
-const toolForm = ref({ name: '', description: '', divisionId: null, departmentId: null, sectionId: null, categoryId: null, sortOrder: 0 })
+const toolForm = ref({
+  name: '', description: '',
+  divisionId: null, departmentId: null, sectionId: null,
+  categoryId: null, sortOrder: 0,
+})
 
+// 分類選項：按本部篩選（分類現為本部層級）
 const categoriesForTool = computed(() => {
-  if (!toolForm.value.divisionId) return []
-  const divId  = toolForm.value.divisionId
-  const deptId = toolForm.value.departmentId
-  const secId  = toolForm.value.sectionId
-
-  // 本部下所有部門 ID（用來判斷部門是否屬於此本部）
-  const divDeptIds = departments.value.filter(d => d.divisionId === divId).map(d => d.id)
-
-  return categories.value.filter(cat => {
-    if (secId)   return cat.sectionId    === secId
-    if (deptId)  return cat.departmentId === deptId
-
-    // 只選本部：直屬本部 OR 屬於本部下任一部門 OR 屬於本部下任一課別
-    const catDivMatch  = cat.divisionId   === divId
-    const catDeptMatch = cat.departmentId != null && divDeptIds.includes(cat.departmentId)
-    return catDivMatch || catDeptMatch
-  })
+  const divId = editingTool.value?.sceneId
+    ? editingTool.value.divisionId
+    : toolForm.value.divisionId
+  if (!divId) return categories.value.filter(c => c.active !== false)
+  return categories.value.filter(cat => cat.divisionId === divId)
 })
 
 function openToolDialog(tool = null) {
   editingTool.value = tool
   if (tool) {
     toolForm.value = {
-      name: tool.name, description: tool.description || '',
-      divisionId: tool.divisionId, departmentId: tool.departmentId,
-      sectionId: tool.sectionId, categoryId: tool.categoryId, sortOrder: tool.sortOrder,
+      name:         tool.name,
+      // 已儲存的說明 → 場景 agentCategory → 空白
+      description:  tool.description || tool.scene?.agentCategory || '',
+      divisionId:   tool.divisionId,
+      departmentId: tool.departmentId,
+      sectionId:    tool.sectionId,
+      categoryId:   tool.categoryId ?? null,
+      sortOrder:    tool.sortOrder,
     }
   } else {
-    // 新增時：預填帳號所屬本部/部門/課
     toolForm.value = {
       name: '', description: '',
       divisionId:   myDivisionId,
       departmentId: myDepartmentId,
       sectionId:    mySectionId,
-      categoryId: null, sortOrder: 0,
+      categoryId:   null, sortOrder: 0,
     }
   }
   toolDialogVisible.value = true
 }
 
 async function saveTool() {
-  if (!toolForm.value.name) return ElMessage.warning('請填寫工具名稱')
-  if (!toolForm.value.categoryId) return ElMessage.warning('請選擇分類')
+  if (!toolForm.value.name) return ElMessage.warning('請填寫卡片名稱')
   saving.value = true
   try {
     if (editingTool.value) {
-      await api.put(`/resource-library/tools/${editingTool.value.id}`, toolForm.value)
+      await api.put(`/resource-library/tools/${editingTool.value.id}`, {
+        description: toolForm.value.description,
+        categoryId:  toolForm.value.categoryId ?? null,
+        sortOrder:   toolForm.value.sortOrder,
+        // 場景綁定卡不更新名稱與組織（由場景同步）
+        ...(editingTool.value.sceneId ? {} : {
+          name:         toolForm.value.name,
+          divisionId:   toolForm.value.divisionId,
+          departmentId: toolForm.value.departmentId,
+          sectionId:    toolForm.value.sectionId,
+        }),
+      })
       ElMessage.success('已更新')
     } else {
       await api.post('/resource-library/tools', toolForm.value)
@@ -519,31 +578,23 @@ function downloadItem(item) {
 // ── 管理分類 ──────────────────────────────────
 const catManageVisible = ref(false)
 const newCatName = ref('')
+const newCatSortOrder = ref(0)
 const catManageList = ref([])
-const catForm = ref({ divisionId: null, departmentId: null, sectionId: null })
+const catForm = ref({ divisionId: null })
 
 function openCatManage() {
-  // 預填帳號所屬本部/部門/課
-  catForm.value = {
-    divisionId:   myDivisionId,
-    departmentId: myDepartmentId,
-    sectionId:    mySectionId,
-  }
+  catForm.value = { divisionId: myDivisionId }
   catManageList.value = []
   newCatName.value = ''
+  newCatSortOrder.value = 0
   catManageVisible.value = true
-  // 若有預設本部則立即載入分類列表
   if (myDivisionId) loadCatList()
 }
 
 async function loadCatList() {
   if (!catForm.value.divisionId) { catManageList.value = []; return }
-  const params = {}
-  if (catForm.value.sectionId)         params.sectionId    = catForm.value.sectionId
-  else if (catForm.value.departmentId) params.departmentId = catForm.value.departmentId
-  else                                 params.divisionId   = catForm.value.divisionId
   try {
-    const res = await api.get('/resource-library/categories', { params })
+    const res = await api.get('/resource-library/categories', { params: { divisionId: catForm.value.divisionId } })
     catManageList.value = res.data
   } catch {}
 }
@@ -552,18 +603,27 @@ async function addCategory() {
   if (!newCatName.value.trim()) return ElMessage.warning('請填寫分類名稱')
   try {
     await api.post('/resource-library/categories', {
-      name: newCatName.value.trim(),
-      divisionId:   catForm.value.divisionId,
-      departmentId: catForm.value.departmentId || null,
-      sectionId:    catForm.value.sectionId    || null,
+      name:       newCatName.value.trim(),
+      divisionId: catForm.value.divisionId,
+      sortOrder:  newCatSortOrder.value ?? 0,
     })
     newCatName.value = ''
+    newCatSortOrder.value = 0
     await loadCatList()
     const res = await api.get('/resource-library/categories')
     categories.value = res.data
     await fetchAll()
   } catch (e) {
     ElMessage.error(e.response?.data?.error || '新增失敗')
+  }
+}
+
+async function updateCategoryOrder(id, sortOrder) {
+  try {
+    await api.put(`/resource-library/categories/${id}`, { sortOrder: sortOrder ?? 0 })
+    await fetchAll()
+  } catch (e) {
+    ElMessage.error(e.response?.data?.error || '更新排序失敗')
   }
 }
 
@@ -599,10 +659,11 @@ async function removeFavorite(toolId) {
   try {
     await api.delete(`/resource-library/favorites/${toolId}`)
     await fetchFavorites()
-    for (const div of divGroups.value)
-      for (const cat of div.categories)
-        for (const tool of cat.tools)
-          if (tool.id === toolId) tool.isFavorite = false
+    for (const div of divGroups.value) {
+      const allTools = [...(div.uncategorized || []), ...(div.categories || []).flatMap(c => c.tools)]
+      for (const tool of allTools)
+        if (tool.id === toolId) tool.isFavorite = false
+    }
   } catch (e) {
     ElMessage.error(e.response?.data?.error || '操作失敗')
   }
@@ -651,18 +712,23 @@ function openUrl(url) {
 
 /* ── 分類 ── */
 .category-header { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.cat-arrow { font-size: 13px; color: #94a3b8; transition: transform .2s; flex-shrink: 0; }
+.cat-arrow.open { transform: rotate(90deg); }
 .category-name   { font-size: 14px; font-weight: 700; color: #334155; border-left: 3px solid #6366f1; padding-left: 8px; }
-.category-org-tag { font-size: 12px; color: #6366f1; background: #eef2ff; border-radius: 8px; padding: 1px 8px; }
+.uncat-name      { border-left-color: #94a3b8; color: #64748b; }
 .category-count  { font-size: 12px; color: #94a3b8; margin-left: auto; }
 
 /* ── 卡片格 ── */
 .tools-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
 
 /* ── 管理分類 ── */
-.cat-manage {}
 .cat-org-row { display: flex; gap: 8px; }
 .cat-add-row { display: flex; gap: 8px; }
 .hint-text   { font-size: 12px; color: #f59e0b; margin-top: 4px; }
+
+/* ── 場景關聯資訊 ── */
+.scene-link-info { display: flex; align-items: center; gap: 8px; }
+.scene-link-name { font-size: 12px; color: #94a3b8; }
 
 @media (max-width: 768px) {
   .tools-grid { grid-template-columns: 1fr; }

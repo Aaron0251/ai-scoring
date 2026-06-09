@@ -159,6 +159,8 @@ model Scene {
   establishDate       DateTime?
   targetDate          DateTime?
   goLiveDate          DateTime?
+  completedAt         DateTime?  // 狀態首次變為「已完成」的時間（自動記錄，不覆寫）
+  baselineSavingHours Float?     // 變為「已完成」當下的 savingHoursMonthly（只寫一次）
 
   originalHours       Float?     // 原總作業時數
   improvedHours       Float?     // 改善後總作業時數
@@ -176,6 +178,10 @@ model Scene {
   importHash          String?    @unique // Excel 匯入防重複
   createdAt           DateTime   @default(now())
   updatedAt           DateTime   @updatedAt
+
+  resourceCategoryId  Int?
+  resourceCategory    ResourceCategory? @relation("SceneResourceCategory", fields: [resourceCategoryId], references: [id], onDelete: SetNull)
+  resourceTool        ResourceTool?     @relation("SceneResourceTool")
 
   benefits            SceneBenefit[]
   executionLogs       SceneExecutionLog[]
@@ -307,16 +313,19 @@ model ResourceCategory {
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
   tools        ResourceTool[]
+  scenes       Scene[]        @relation("SceneResourceCategory")
 
   @@schema("ai_scoring")
 }
 
 model ResourceTool {
-  id           Int              @id @default(autoincrement())
+  id           Int               @id @default(autoincrement())
   name         String
   description  String?
-  categoryId   Int
-  category     ResourceCategory @relation(fields: [categoryId], references: [id])
+  categoryId   Int?              // nullable = 未分類
+  category     ResourceCategory? @relation(fields: [categoryId], references: [id])
+  sceneId      Int?              @unique  // 關聯場景（已完成自動建立）
+  scene        Scene?            @relation("SceneResourceTool", fields: [sceneId], references: [id], onDelete: SetNull)
   divisionId   Int?
   division     Division?        @relation(fields: [divisionId], references: [id])
   departmentId Int?

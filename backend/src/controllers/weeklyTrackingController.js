@@ -93,7 +93,34 @@ function calculateSceneKPIs(scenes) {
     ? Math.min(Math.round((onlineSavingHoursSum / baseSavingHoursSum) * 100), 100)
     : 0;
 
-  return { totalScenes, savingHours, estimatedMonthlyAvg, actualMonthlyAvg, avgProgress, humanReleaseRate, headcountSaved };
+  // 狀態計數
+  const completedCount  = scenes.filter(s => s.status === '已完成').length;
+  const inProgressCount = scenes.filter(s => s.status === '進行中').length;
+
+  // 115年實際節省時數（已完成場景，依上線日推算到年底）
+  const actualSaved115 = scenes
+    .filter(s => s.status === '已完成')
+    .reduce((sum, s) => {
+      const monthly = sceneMonthly(s);
+      if (monthly <= 0) return sum;
+      const refDate = s.goLiveDate ? new Date(s.goLiveDate) : today;
+      return sum + monthly * monthsIn115(refDate);
+    }, 0);
+
+  // 持續優化：已完成 + 最新執行日誌 > completedAt
+  const refiningCount = scenes.filter(s => {
+    if (s.status !== '已完成' || !s.completedAt) return false;
+    const latestLog = s.executionLogs?.[0];
+    if (!latestLog) return false;
+    return new Date(latestLog.logDate || latestLog.createdAt) > new Date(s.completedAt);
+  }).length;
+
+  // 節省工時提升：已完成 + savingHoursMonthly > baselineSavingHours
+  const savingsIncreasedTotal = scenes
+    .filter(s => s.status === '已完成' && s.baselineSavingHours != null && (s.savingHoursMonthly || 0) > s.baselineSavingHours)
+    .reduce((sum, s) => sum + ((s.savingHoursMonthly || 0) - s.baselineSavingHours), 0);
+
+  return { totalScenes, savingHours, estimatedMonthlyAvg, actualMonthlyAvg, avgProgress, humanReleaseRate, headcountSaved, completedCount, inProgressCount, actualSaved115, refiningCount, savingsIncreasedTotal };
 }
 
 /**
@@ -209,6 +236,15 @@ exports.getWeeklyTracking = async (req, res) => {
         .map(h => h.remarks)
         .join('；') || null;
 
+      const latestLog = weeklyLogs[0] || scene.executionLogs[0] || null;
+      const isRefining = scene.status === '已完成'
+        && scene.completedAt
+        && latestLog
+        && new Date(latestLog.logDate || latestLog.createdAt) > new Date(scene.completedAt);
+      const savingsDelta = (scene.status === '已完成' && scene.baselineSavingHours != null && (scene.savingHoursMonthly || 0) > scene.baselineSavingHours)
+        ? Math.round(((scene.savingHoursMonthly || 0) - scene.baselineSavingHours) * 10) / 10
+        : null;
+
       weeklyProgressItems.push({
         sceneId: scene.id,
         sceneName: scene.sceneName,
@@ -220,10 +256,12 @@ exports.getWeeklyTracking = async (req, res) => {
         changePercent,
         indicator,
         remarks,
-        lastLog: weeklyLogs[0] || scene.executionLogs[0] || null,
+        lastLog: latestLog,
         department: scene.department?.name,
         division: scene.department?.division?.name,
         section: scene.section?.name,
+        isRefining: isRefining || false,
+        savingsDelta,
       });
     }
 

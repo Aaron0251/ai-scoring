@@ -1,8 +1,14 @@
 <template>
-  <div class="tool-card" :class="{ 'is-favorite': tool.isFavorite }">
+  <div class="tool-card" :class="{ 'is-favorite': tool.isFavorite, 'is-scene': !!tool.sceneId }">
     <!-- 卡片頭 -->
     <div class="card-header">
-      <div class="card-title">{{ tool.name }}</div>
+      <div class="card-title-wrap">
+        <!-- 場景代號 badge -->
+        <div v-if="tool.scene" class="scene-badge">
+          <el-tag size="small" type="success" effect="light">🔗 {{ tool.scene.itemNo }}</el-tag>
+        </div>
+        <div class="card-title">{{ tool.name }}</div>
+      </div>
       <div class="card-actions">
         <el-tooltip :content="tool.isFavorite ? '從最愛移除' : '加入最愛'" placement="top">
           <el-icon class="fav-btn" :class="{ active: tool.isFavorite }" @click="$emit('toggle-fav', tool)">
@@ -11,7 +17,13 @@
         </el-tooltip>
         <template v-if="canEdit">
           <el-icon class="action-btn" @click="$emit('edit', tool)"><Edit /></el-icon>
-          <el-popconfirm title="確定刪除此工具卡片？" @confirm="$emit('delete', tool.id)">
+          <!-- 場景綁定卡：禁止直接刪除，改為說明提示 -->
+          <el-tooltip v-if="tool.sceneId"
+            content="此卡片由場景自動建立，如需隱藏請將場景狀態改回「進行中」"
+            placement="top">
+            <el-icon class="action-btn danger disabled"><Delete /></el-icon>
+          </el-tooltip>
+          <el-popconfirm v-else title="確定刪除此工具卡片？" @confirm="$emit('delete', tool.id)">
             <template #reference>
               <el-icon class="action-btn danger"><Delete /></el-icon>
             </template>
@@ -20,15 +32,20 @@
       </div>
     </div>
 
-    <!-- 描述 -->
-    <div v-if="tool.description" class="card-desc">{{ tool.description }}</div>
-
-    <!-- 組織標籤 -->
-    <div class="card-org" v-if="tool.section || tool.department || tool.division">
-      <el-tag size="small" type="info">
+    <!-- 組織標籤 + 負責人（同一列） -->
+    <div class="card-org" v-if="tool.section || tool.department || tool.division || tool.scene?.taskOwners">
+      <el-tag v-if="tool.section || tool.department || tool.division" size="small" type="info">
         {{ tool.section?.name || tool.department?.name || tool.division?.name }}
       </el-tag>
+      <span v-if="tool.scene?.taskOwners" class="owners-inline">
+        <span class="owners-label">負責人</span>
+        <span class="owners-value">{{ tool.scene.taskOwners }}</span>
+      </span>
     </div>
+
+    <!-- 描述：優先顯示手動填寫的 description，否則顯示場景開發方式 -->
+    <div v-if="tool.description" class="card-desc">{{ tool.description }}</div>
+    <div v-else-if="tool.scene?.developMethod" class="card-desc scene-desc">{{ tool.scene.developMethod }}</div>
 
     <!-- 資源項目 -->
     <div class="items-list">
@@ -85,9 +102,13 @@ function itemTagType(type) {
 }
 .tool-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,.09); border-color: #c7d2fe; }
 .tool-card.is-favorite { border-color: #fbbf24; box-shadow: 0 2px 8px rgba(251,191,36,.2); }
+/* 場景自動建立的卡片：左上角顯示淡綠邊 */
+.tool-card.is-scene { border-left: 3px solid #86efac; }
 
 .card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
-.card-title  { font-size: 14px; font-weight: 600; color: #1e293b; flex: 1; word-break: break-all; }
+.card-title-wrap { flex: 1; display: flex; flex-direction: column; gap: 3px; }
+.scene-badge { line-height: 1; }
+.card-title  { font-size: 14px; font-weight: 600; color: #1e293b; word-break: break-all; }
 .card-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
 
 .fav-btn { font-size: 17px; cursor: pointer; color: #cbd5e1; transition: color .15s, transform .15s; }
@@ -96,9 +117,15 @@ function itemTagType(type) {
 .action-btn { font-size: 14px; cursor: pointer; color: #94a3b8; }
 .action-btn:hover { color: #6366f1; }
 .action-btn.danger:hover { color: #ef4444; }
+.action-btn.disabled { color: #d1d5db; cursor: not-allowed; pointer-events: none; }
 
-.card-desc { font-size: 12px; color: #64748b; margin-bottom: 8px; line-height: 1.5; }
-.card-org  { margin-bottom: 10px; }
+.card-org    { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
+.card-desc   { font-size: 12px; color: #64748b; margin-bottom: 6px; line-height: 1.5; }
+.scene-desc  { color: #64748b; font-style: italic; }
+
+.owners-inline { display: flex; align-items: center; gap: 4px; font-size: 12px; }
+.owners-label  { color: #94a3b8; flex-shrink: 0; }
+.owners-value  { color: #475569; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .items-list { border-top: 1px solid #f1f5f9; padding-top: 8px; display: flex; flex-direction: column; gap: 3px; }
 .item-row   { display: flex; align-items: center; gap: 6px; padding: 3px 4px; border-radius: 5px; font-size: 12px; transition: background .15s; }

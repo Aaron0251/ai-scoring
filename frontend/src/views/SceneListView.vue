@@ -56,22 +56,43 @@
 
       <!-- ── 篩選列 ─────────────────────────── -->
       <div class="filter-bar">
-        <el-select v-model="filterDivision" placeholder="本部" clearable style="width:130px" @change="onDivisionChange">
+        <el-select
+          v-model="filterDivision" placeholder="本部"
+          multiple collapse-tags collapse-tags-tooltip clearable
+          style="width:155px" @change="onDivisionChange"
+        >
           <el-option v-for="d in divisions" :key="d.id" :label="d.name" :value="d.id" />
         </el-select>
-        <el-select v-model="filterDept" placeholder="部門" clearable style="width:140px" @change="onDeptChange">
+        <el-select
+          v-model="filterDept" placeholder="部門"
+          multiple collapse-tags collapse-tags-tooltip clearable
+          style="width:165px" @change="onDeptChange"
+        >
           <el-option v-for="d in filteredDepts" :key="d.id" :label="d.name" :value="d.id" />
         </el-select>
-        <el-select v-model="filterSection" placeholder="課別" clearable style="width:130px" @change="loadScenes">
+        <el-select
+          v-model="filterSection" placeholder="課別"
+          multiple collapse-tags collapse-tags-tooltip clearable
+          style="width:150px"
+        >
           <el-option v-for="s in filteredSections" :key="s.id" :label="s.name" :value="s.id" />
         </el-select>
-        <el-select v-model="filterStatus" placeholder="狀態" clearable style="width:120px" @change="loadScenes">
+        <el-select
+          v-model="filterStatus" placeholder="狀態"
+          multiple collapse-tags collapse-tags-tooltip clearable
+          style="width:140px"
+        >
           <el-option label="規劃中" value="規劃中" />
           <el-option label="進行中" value="進行中" />
           <el-option label="已完成" value="已完成" />
           <el-option label="暫停" value="暫停" />
+          <el-option label="🔁 持續優化" value="__refining__" />
         </el-select>
-        <el-select v-model="filterPriority" placeholder="優先序" clearable style="width:110px" @change="loadScenes">
+        <el-select
+          v-model="filterPriority" placeholder="優先序"
+          multiple collapse-tags collapse-tags-tooltip clearable
+          style="width:130px"
+        >
           <el-option label="高" value="高" />
           <el-option label="中" value="中" />
           <el-option label="低" value="低" />
@@ -82,16 +103,14 @@
           prefix-icon="Search"
           clearable
           style="width:220px"
-          @clear="loadScenes"
-          @keyup.enter="loadScenes"
         />
-        <el-button @click="loadScenes">搜尋</el-button>
+        <el-button @click="loadScenes">重新整理</el-button>
       </div>
 
       <!-- ══ 表格視圖 ══════════════════════════ -->
       <template v-if="viewMode === 'table'">
         <el-table
-          :data="scenes"
+          :data="filteredAndSortedScenes"
           stripe
           size="small"
           v-loading="loading"
@@ -111,8 +130,14 @@
               <el-tag :type="statusType(row.status)" size="small">{{ row.status }}</el-tag>
             </template>
           </el-table-column>
-          <el-table-column v-if="!batchMode" label="預估節省時數" width="90" align="right">
-            <template #default="{ row }">{{ row.savingHoursMonthly != null ? row.savingHoursMonthly : (row.originalHours != null && row.improvedHours != null) ? +(row.originalHours - row.improvedHours).toFixed(1) : '-' }}</template>
+          <el-table-column v-if="!batchMode" label="預估節省時數" width="115" align="right">
+            <template #default="{ row }">
+              <span>{{ row.savingHoursMonthly != null ? row.savingHoursMonthly : (row.originalHours != null && row.improvedHours != null) ? +(row.originalHours - row.improvedHours).toFixed(1) : '-' }}</span>
+              <span
+                v-if="row.status === '已完成' && row.baselineSavingHours != null && (row.savingHoursMonthly || 0) > row.baselineSavingHours"
+                class="savings-up-badge"
+              >⬆ +{{ ((row.savingHoursMonthly || 0) - row.baselineSavingHours).toFixed(1) }}</span>
+            </template>
           </el-table-column>
           <el-table-column label="進度" width="160">
             <template #default="{ row }">
@@ -324,6 +349,60 @@ async function saveBatchProgress() {
   }
 }
 
+// ── 持續優化判斷 helper ──────────────────────────
+function isRefining(s) {
+  if (s.status !== '已完成' || !s.completedAt) return false;
+  const latestLog = s.executionLogs?.[0];
+  if (!latestLog) return false;
+  return new Date(latestLog.logDate || latestLog.createdAt) > new Date(s.completedAt);
+}
+
+// ── 多選篩選 + 排序（本部→部門→狀態）────────────
+const STATUS_ORDER = { '規劃中': 1, '進行中': 2, '暫停': 3, '已完成': 4 }
+
+const filteredAndSortedScenes = computed(() => {
+  let result = scenes.value
+
+  if (filterDivision.value.length > 0) {
+    result = result.filter(s => filterDivision.value.includes(s.department?.division?.id))
+  }
+  if (filterDept.value.length > 0) {
+    result = result.filter(s => filterDept.value.includes(s.departmentId))
+  }
+  if (filterSection.value.length > 0) {
+    result = result.filter(s => filterSection.value.includes(s.sectionId))
+  }
+  if (filterStatus.value.length > 0) {
+    // __refining__ 為特殊 pseudo-filter
+    const realStatuses = filterStatus.value.filter(v => v !== '__refining__')
+    const wantRefining = filterStatus.value.includes('__refining__')
+    result = result.filter(s => {
+      if (wantRefining && isRefining(s)) return true
+      if (realStatuses.length > 0 && realStatuses.includes(s.status)) return true
+      return false
+    })
+  }
+  if (filterPriority.value.length > 0) {
+    result = result.filter(s => filterPriority.value.includes(s.priority))
+  }
+  if (keyword.value) {
+    const kw = keyword.value.toLowerCase()
+    result = result.filter(s => s.sceneName?.toLowerCase().includes(kw))
+  }
+
+  return [...result].sort((a, b) => {
+    const divA = a.department?.division?.name || ''
+    const divB = b.department?.division?.name || ''
+    if (divA !== divB) return divA.localeCompare(divB, 'zh-TW')
+
+    const deptA = a.department?.name || ''
+    const deptB = b.department?.name || ''
+    if (deptA !== deptB) return deptA.localeCompare(deptB, 'zh-TW')
+
+    return (STATUS_ORDER[a.status] ?? 99) - (STATUS_ORDER[b.status] ?? 99)
+  })
+})
+
 // ── 看板資料 ────────────────────────────────────
 const kanbanColumns = [
   { status: '規劃中', label: '規劃中', headerClass: 'col-planned', badgeType: 'info' },
@@ -332,7 +411,7 @@ const kanbanColumns = [
   { status: '已完成', label: '已完成', headerClass: 'col-done',      badgeType: 'success' },
 ]
 function kanbanScenes(status) {
-  return scenes.value.filter(s => s.status === status)
+  return filteredAndSortedScenes.value.filter(s => s.status === status)
 }
 
 // ── 匯出選取（欄位與匯入範本完全一致，可直接修改後再匯入）────
@@ -400,12 +479,12 @@ function exportSelected() {
 }
 
 // ── 篩選 ────────────────────────────────────────
-const filterDivision = ref(null)
-const filterDept = ref(null)
-const filterSection = ref(null)
-const filterStatus = ref('')
-const filterPriority = ref('')
-const keyword = ref('')
+const filterDivision = ref([])
+const filterDept     = ref([])
+const filterSection  = ref([])
+const filterStatus   = ref([])
+const filterPriority = ref([])
+const keyword        = ref('')
 
 const divisions = ref([])
 const allDepts = ref([])
@@ -415,22 +494,24 @@ const filteredDepts = computed(() => {
   if ((auth.isManager || auth.isChief) && !auth.isAdmin && !auth.isExecutive && auth.user?.divisionId) {
     return allDepts.value.filter(d => d.divisionId === auth.user.divisionId)
   }
-  return filterDivision.value
-    ? allDepts.value.filter(d => d.divisionId === filterDivision.value)
+  return filterDivision.value.length > 0
+    ? allDepts.value.filter(d => filterDivision.value.includes(d.divisionId))
     : allDepts.value
 })
 
 const filteredSections = computed(() => {
   if ((auth.isManager || auth.isChief) && !auth.isAdmin && !auth.isExecutive && auth.user?.divisionId) {
     const myDepts = allDepts.value.filter(d => d.divisionId === auth.user.divisionId)
-    if (filterDept.value) return allSections.value.filter(s => s.departmentId === filterDept.value)
+    if (filterDept.value.length > 0) return allSections.value.filter(s => filterDept.value.includes(s.departmentId))
     return allSections.value.filter(s => myDepts.some(d => d.id === s.departmentId))
   }
-  return filterDept.value
-    ? allSections.value.filter(s => s.departmentId === filterDept.value)
-    : (filterDivision.value
-      ? allSections.value.filter(s => filteredDepts.value.some(d => d.id === s.departmentId))
-      : allSections.value)
+  if (filterDept.value.length > 0) {
+    return allSections.value.filter(s => filterDept.value.includes(s.departmentId))
+  }
+  if (filterDivision.value.length > 0) {
+    return allSections.value.filter(s => filteredDepts.value.some(d => d.id === s.departmentId))
+  }
+  return allSections.value
 })
 
 // ── 新增場景 ────────────────────────────────────
@@ -452,7 +533,7 @@ onMounted(async () => {
   allSections.value = secRes.data
 
   if ((auth.isChief || auth.isManager) && !auth.isAdmin && !auth.isExecutive && auth.user?.divisionId) {
-    filterDivision.value = auth.user.divisionId
+    filterDivision.value = [auth.user.divisionId]
   }
   await loadScenes()
 
@@ -466,12 +547,7 @@ async function loadScenes() {
   loading.value = true
   try {
     const params = {}
-    if (filterDivision.value) params.divisionId = filterDivision.value
-    if (filterDept.value) params.departmentId = filterDept.value
-    if (filterSection.value) params.sectionId = filterSection.value
-    if (filterStatus.value) params.status = filterStatus.value
-    if (filterPriority.value) params.priority = filterPriority.value
-    if (keyword.value) params.keyword = keyword.value
+    // 篩選由 filteredAndSortedScenes computed 處理，server 只負責存取控制
     const res = await scenesApi.list(params)
     scenes.value = res.data
     // 同步更新批量填報 map
@@ -486,18 +562,12 @@ async function loadScenes() {
 }
 
 function onDivisionChange() {
-  filterDept.value = null
-  filterSection.value = null
-  if ((auth.isChief || auth.isManager) && !auth.isAdmin && !auth.isExecutive && auth.user?.divisionId && filterDivision.value !== auth.user.divisionId) {
-    filterDivision.value = auth.user.divisionId
-    return
-  }
-  loadScenes()
+  filterDept.value = []
+  filterSection.value = []
 }
 
 function onDeptChange() {
-  filterSection.value = null
-  loadScenes()
+  filterSection.value = []
 }
 
 async function loadCreateSections(deptId) {
@@ -614,6 +684,7 @@ function priorityType(p) {
 .kanban-card-meta { display: flex; align-items: center; gap: 6px; }
 .kanban-dept      { font-size: 11px; color: #909399; }
 .kanban-empty     { text-align: center; color: #c0c4cc; font-size: 13px; padding: 20px 0; }
+.savings-up-badge { margin-left: 4px; font-size: 11px; color: #059669; font-weight: 600; white-space: nowrap; }
 
 /* ── 手機版 ── */
 @media (max-width: 768px) {

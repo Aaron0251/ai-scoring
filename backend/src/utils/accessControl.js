@@ -1,7 +1,7 @@
 /**
  * 存取控制共用工具
  * 規則：
- *   - admin / boss / executive → 無限制（看全部）
+ *   - admin / boss / executive / chief → 無限制（看全部），可透過 query 篩選
  *   - 其他角色，無任何組織指定 → 無限制（看全部）
  *   - 有 divisionId → 限制在該本部底下所有部門
  *   - 有 departmentId（無 divisionId）→ 限制在該部門
@@ -21,8 +21,8 @@ async function getAccessibleDeptIds(user) {
     ? user.roles
     : JSON.parse(user.roles || '[]');
 
-  // 高權限角色無限制
-  if (roles.includes('admin') || roles.includes('boss') || roles.includes('executive')) {
+  // 高權限角色（含 chief）無限制，可透過前端下拉自行篩選
+  if (roles.includes('admin') || roles.includes('boss') || roles.includes('executive') || roles.includes('chief')) {
     return null;
   }
 

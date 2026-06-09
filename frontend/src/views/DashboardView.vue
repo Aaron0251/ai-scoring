@@ -4,16 +4,12 @@
       <div class="dashboard-header">
         <h2 class="page-title">AI 推動評分 Dashboard</h2>
         <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-          <!-- admin / executive 可切換本部 -->
+          <!-- admin / executive / chief 可切換本部 -->
           <template v-if="canSwitchDivision">
             <el-select v-model="selectedDivisionId" placeholder="全部本部" clearable style="width:160px" size="small" @change="load">
               <el-option v-for="d in allDivisions" :key="d.id" :label="d.name" :value="d.id" />
             </el-select>
           </template>
-          <!-- chief / manager 顯示所屬本部標籤 -->
-          <el-tag v-else-if="myDivisionName" type="primary" size="default">
-            目前檢視：{{ myDivisionName }}
-          </el-tag>
           <el-button @click="load" :loading="loading" size="small" plain>
             <el-icon><Refresh /></el-icon> 重新整理
           </el-button>
@@ -280,12 +276,8 @@ const top5 = ref([])
 const alertList = ref([])
 const toolTreemap = ref([])
 
-// 非 admin/executive 固定只能看自己本部，不得切換
-const canSwitchDivision = computed(() => auth.isAdmin || auth.isExecutive)
-const myDivisionName = computed(() => {
-  if (!auth.user?.divisionId) return null
-  return allDivisions.value.find(d => d.id === auth.user.divisionId)?.name || null
-})
+// admin / executive / chief 可切換本部
+const canSwitchDivision = computed(() => auth.isAdmin || auth.isExecutive || auth.isChief)
 // 後端已依 divisionId 過濾，直接顯示即可
 const filteredDivisions = computed(() => divisions.value)
 
@@ -427,10 +419,7 @@ onMounted(async () => {
     allDivisions.value = r.data
   } catch {}
 
-  // chief / manager 自動鎖定自己的本部
-  if (!auth.isAdmin && !auth.isExecutive && auth.user?.divisionId) {
-    selectedDivisionId.value = auth.user.divisionId
-  }
+  // chief / manager 不自動鎖定，預設全部本部（null）
   await load()
 })
 </script>

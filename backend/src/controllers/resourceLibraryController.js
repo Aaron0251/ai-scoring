@@ -2,6 +2,7 @@ const prisma = require('../prisma');
 const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
+const { getAccessibleDeptIds } = require('../utils/accessControl');
 
 // 生產環境隱藏內部錯誤細節，開發環境保留完整訊息
 function safeError(res, err, status = 500) {
@@ -90,46 +91,23 @@ exports.getCategories = async (req, res) => {
 
 exports.createCategory = async (req, res) => {
   try {
-    const { name, description, sortOrder, divisionId, departmentId, sectionId } = req.body;
-    if (!name) return res.status(400).json({ error: '請填寫分類名稱' });
-    if (!divisionId && !departmentId && !sectionId) {
-      return res.status(400).json({ error: '請至少選擇本部、部門或課別其中一項' });
-    }
-
-    // 若未提供 divisionId，自動從部門或課別往上推算
-    let effectiveDivisionId = divisionId ? parseInt(divisionId) : null;
-    if (!effectiveDivisionId && departmentId) {
-      const dept = await prisma.department.findUnique({
-        where: { id: parseInt(departmentId) }, select: { divisionId: true },
-      });
-      effectiveDivisionId = dept?.divisionId ?? null;
-    }
-    if (!effectiveDivisionId && sectionId) {
-      const sect = await prisma.section.findUnique({
-        where: { id: parseInt(sectionId) },
-        include: { department: { select: { divisionId: true } } },
-      });
-      effectiveDivisionId = sect?.department?.divisionId ?? null;
-    }
+    const { name, sortOrder, divisionId } = req.body;
+    if (!name)       return res.status(400).json({ error: '請填寫分類名稱' });
+    if (!divisionId) return res.status(400).json({ error: '請選擇本部' });
 
     const cat = await prisma.resourceCategory.create({
       data: {
         name,
-        description,
-        sortOrder: sortOrder ?? 0,
-        divisionId:   effectiveDivisionId,
-        departmentId: departmentId ? parseInt(departmentId) : null,
-        sectionId:    sectionId    ? parseInt(sectionId)    : null,
+        sortOrder:    sortOrder != null ? parseInt(sortOrder) : 0,
+        divisionId:   parseInt(divisionId),
+        departmentId: null,
+        sectionId:    null,
       },
-      include: {
-        division:   { select: { id: true, name: true } },
-        department: { select: { id: true, name: true } },
-        section:    { select: { id: true, name: true } },
-      },
+      include: { division: { select: { id: true, name: true } } },
     });
     res.status(201).json(cat);
   } catch (err) {
-    if (err.code === 'P2002') return res.status(409).json({ error: '此組織層級已有相同名稱的分類' });
+    if (err.code === 'P2002') return res.status(409).json({ error: '此本部已有相同名稱的分類' });
     safeError(res, err);
   }
 };
@@ -190,10 +168,33 @@ exports.getToolsGrouped = async (req, res) => {
   try {
     const userId = req.user?.id;
 
+    // 共用的 tool include 欄位
+    const toolInclude = {
+      division:   { select: { id: true, name: true } },
+      department: { select: { id: true, name: true } },
+      section:    { select: { id: true, name: true } },
+      scene:      { select: { id: true, itemNo: true, agentCategory: true, developMethod: true, taskOwners: true, seedOwners: true } },
+      items: {
+        where: { active: true },
+        orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }],
+      },
+    };
+
     // 取得所有本部（含排序）
     const divisions = await prisma.division.findMany({ orderBy: { id: 'asc' } });
 
-    // 取得所有分類（含工具、項目）
+    // 取得所有部門（含 divisionId）用於推算本部
+    const departments = await prisma.department.findMany({ select: { id: true, divisionId: true } });
+    const deptDivMap = Object.fromEntries(departments.map(d => [d.id, d.divisionId]));
+
+    // 取得未分類工具（categoryId 為 null）
+    const uncategorizedTools = await prisma.resourceTool.findMany({
+      where: { active: true, categoryId: null },
+      include: toolInclude,
+      orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }],
+    });
+
+    // 取得有分類的工具（透過分類分組）
     const categories = await prisma.resourceCategory.findMany({
       where: { active: true },
       include: {
@@ -201,16 +202,8 @@ exports.getToolsGrouped = async (req, res) => {
         department: { select: { id: true, name: true } },
         section:    { select: { id: true, name: true } },
         tools: {
-          where: { active: true },
-          include: {
-            division:   { select: { id: true, name: true } },
-            department: { select: { id: true, name: true } },
-            section:    { select: { id: true, name: true } },
-            items: {
-              where: { active: true },
-              orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }],
-            },
-          },
+          where: { active: true, categoryId: { not: null } },
+          include: toolInclude,
           orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }],
         },
       },
@@ -224,41 +217,55 @@ exports.getToolsGrouped = async (req, res) => {
       favoriteToolIds = new Set(favs.map(f => f.toolId));
     }
 
-    // 幫每個工具加 isFavorite，計算分類的有效本部 ID
-    const getEffectiveDivisionId = (cat) => {
-      if (cat.divisionId) return cat.divisionId;
-      // 從部門推算本部（需要部門的 divisionId，這裡用 department join 查詢）
-      return cat.department?.divisionId ?? null;
-    };
+    const addFav = (tool) => ({ ...tool, isFavorite: favoriteToolIds.has(tool.id) });
 
-    // 取得所有部門（含 divisionId）用於推算本部
-    const departments = await prisma.department.findMany({ select: { id: true, divisionId: true } });
-    const deptDivMap = Object.fromEntries(departments.map(d => [d.id, d.divisionId]));
-
+    // 計算每個分類的有效本部 ID
     const catsWithFav = categories.map(cat => {
       const effDivId = cat.divisionId || (cat.departmentId ? deptDivMap[cat.departmentId] : null);
       return {
         ...cat,
         _divisionId: effDivId,
-        tools: cat.tools.map(tool => ({ ...tool, isFavorite: favoriteToolIds.has(tool.id) })),
+        tools: cat.tools.map(addFav),
       };
     });
 
-    // 依本部分組
-    const result = divisions.map(div => ({
-      id: div.id,
-      name: div.name,
-      categories: catsWithFav
-        .filter(cat => cat._divisionId === div.id && cat.tools.length > 0)
-        .map(({ _divisionId, ...cat }) => cat),
-    })).filter(div => div.categories.length > 0);
+    // 未分類工具按本部分組
+    const uncatByDiv = {};
+    for (const tool of uncategorizedTools) {
+      const divId = tool.divisionId || (tool.departmentId ? deptDivMap[tool.departmentId] : null);
+      const key = divId ?? 0;
+      if (!uncatByDiv[key]) uncatByDiv[key] = [];
+      uncatByDiv[key].push(addFav(tool));
+    }
 
-    // 無法對應到任何本部的分類歸到「其他」
+    // 依本部分組
+    const result = divisions.map(div => {
+      const divCats = catsWithFav
+        .filter(cat => cat._divisionId === div.id && cat.tools.length > 0)
+        .map(({ _divisionId, ...cat }) => cat);
+      const uncatTools = uncatByDiv[div.id] || [];
+      if (!divCats.length && !uncatTools.length) return null;
+      return {
+        id: div.id,
+        name: div.name,
+        uncategorized: uncatTools,
+        categories: divCats,
+        totalTools: uncatTools.length + divCats.reduce((sum, c) => sum + c.tools.length, 0),
+      };
+    }).filter(Boolean);
+
+    // 無法對應本部的工具歸到「其他」
     const orphanCats = catsWithFav
       .filter(cat => !cat._divisionId && cat.tools.length > 0)
       .map(({ _divisionId, ...cat }) => cat);
-    if (orphanCats.length) {
-      result.push({ id: 0, name: '其他', categories: orphanCats });
+    const orphanUncat = uncatByDiv[0] || [];
+    if (orphanCats.length || orphanUncat.length) {
+      result.push({
+        id: 0, name: '其他',
+        uncategorized: orphanUncat,
+        categories: orphanCats,
+        totalTools: orphanUncat.length + orphanCats.reduce((sum, c) => sum + c.tools.length, 0),
+      });
     }
 
     res.json(result);
@@ -271,13 +278,13 @@ exports.createTool = async (req, res) => {
   try {
     const { name, description, categoryId, divisionId, departmentId, sectionId, sortOrder } = req.body;
     if (!name) return res.status(400).json({ error: '請填寫工具名稱' });
-    if (!categoryId) return res.status(400).json({ error: '請選擇分類' });
+    // categoryId 為可選，不填則放入未分類
 
     const tool = await prisma.resourceTool.create({
       data: {
         name,
         description,
-        categoryId:   parseInt(categoryId),
+        categoryId:   categoryId ? parseInt(categoryId) : null,
         divisionId:   divisionId   ? parseInt(divisionId)   : null,
         departmentId: departmentId ? parseInt(departmentId) : null,
         sectionId:    sectionId    ? parseInt(sectionId)    : null,
@@ -440,6 +447,113 @@ exports.serveFile = async (req, res) => {
     if (item.mimeType) res.setHeader('Content-Type', item.mimeType);
     res.sendFile(filePath);
   } catch (err) {
+    safeError(res, err);
+  }
+};
+
+// ─────────────────────────────────────────────
+// 場景成果（已完成場景自動納入）
+// ─────────────────────────────────────────────
+
+exports.getSceneGrouped = async (req, res) => {
+  try {
+    const { divisionId, departmentId, sectionId, keyword } = req.query;
+    const allowedDeptIds = await getAccessibleDeptIds(req.user);
+
+    const where = { status: '已完成', active: true };
+    if (allowedDeptIds !== null) where.departmentId = { in: allowedDeptIds };
+
+    if (departmentId) {
+      const reqDeptId = parseInt(departmentId);
+      if (allowedDeptIds !== null && !allowedDeptIds.includes(reqDeptId)) return res.json([]);
+      where.departmentId = reqDeptId;
+    } else if (divisionId) {
+      const divDepts = await prisma.department.findMany({
+        where: { divisionId: parseInt(divisionId) }, select: { id: true },
+      });
+      const divDeptIds = divDepts.map(d => d.id);
+      const effectiveIds = allowedDeptIds !== null
+        ? divDeptIds.filter(id => allowedDeptIds.includes(id))
+        : divDeptIds;
+      where.departmentId = { in: effectiveIds };
+    }
+    if (sectionId) where.sectionId = parseInt(sectionId);
+    if (keyword)   where.OR = [
+      { sceneName: { contains: keyword } },
+      { itemNo:    { contains: keyword } },
+    ];
+
+    const scenes = await prisma.scene.findMany({
+      where,
+      include: {
+        department:       { include: { division: true } },
+        section:          true,
+        resourceCategory: { select: { id: true, name: true } },
+      },
+      orderBy: { itemNo: 'asc' },
+    });
+
+    // 依本部分組：未分類優先，已分類後跟
+    const divMap = new Map();
+    for (const s of scenes) {
+      const div = s.department.division;
+      if (!divMap.has(div.id)) {
+        divMap.set(div.id, { id: div.id, name: div.name, uncategorized: [], categories: new Map() });
+      }
+      const divGroup = divMap.get(div.id);
+      const card = {
+        id:                 s.id,
+        itemNo:             s.itemNo,
+        sceneName:          s.sceneName,
+        developMethod:      s.developMethod,
+        taskOwners:         s.taskOwners,
+        seedOwners:         s.seedOwners,
+        goLiveDate:         s.goLiveDate,
+        savingHoursMonthly: s.savingHoursMonthly,
+        resourceCategoryId: s.resourceCategoryId,
+        division:  { id: div.id, name: div.name },
+        department: { id: s.department.id, name: s.department.name },
+        section:    s.section ? { id: s.section.id, name: s.section.name } : null,
+      };
+
+      if (!s.resourceCategoryId) {
+        divGroup.uncategorized.push(card);
+      } else {
+        const cat = s.resourceCategory;
+        if (!divGroup.categories.has(cat.id)) {
+          divGroup.categories.set(cat.id, { id: cat.id, name: cat.name, scenes: [] });
+        }
+        divGroup.categories.get(cat.id).scenes.push(card);
+      }
+    }
+
+    const result = Array.from(divMap.values()).map(div => ({
+      id:          div.id,
+      name:        div.name,
+      uncategorized: div.uncategorized,
+      categories:  Array.from(div.categories.values()),
+      totalScenes: div.uncategorized.length +
+        Array.from(div.categories.values()).reduce((sum, c) => sum + c.scenes.length, 0),
+    }));
+    result.sort((a, b) => a.name.localeCompare(b.name, 'zh'));
+
+    res.json(result);
+  } catch (err) {
+    safeError(res, err);
+  }
+};
+
+exports.assignSceneCategory = async (req, res) => {
+  try {
+    const sceneId = parseInt(req.params.sceneId);
+    const { categoryId } = req.body;
+    await prisma.scene.update({
+      where: { id: sceneId },
+      data: { resourceCategoryId: categoryId ? parseInt(categoryId) : null },
+    });
+    res.json({ success: true });
+  } catch (err) {
+    if (err.code === 'P2025') return res.status(404).json({ error: '找不到場景' });
     safeError(res, err);
   }
 };

@@ -4,6 +4,10 @@ const ctrl = require('../controllers/resourceLibraryController');
 
 const router = express.Router();
 
+// ─── 場景成果（已完成場景自動納入）─────────────────────────
+router.get('/scene-grouped',             authenticate, ctrl.getSceneGrouped);
+router.put('/scenes/:sceneId/category',  authenticate, requireAdminOrManager, ctrl.assignSceneCategory);
+
 // ─── 分類 (Categories) ────────────────────────────────────
 router.get('/categories',         authenticate, ctrl.getCategories);
 router.post('/categories',        authenticate, requireAdminOrManager, ctrl.createCategory);
