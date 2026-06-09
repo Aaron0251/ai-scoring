@@ -277,7 +277,10 @@ exports.getWeeklyTracking = async (req, res) => {
           where: { sceneId: scene.id },
           orderBy: { changedAt: 'desc' },
         });
-        const lastUpdateDate = lastChange ? new Date(lastChange.changedAt) : new Date(scene.createdAt);
+        const lastProgressDate = lastChange ? new Date(lastChange.changedAt) : new Date(scene.createdAt);
+        // 執行日誌也算活躍，取最晚的日期
+        const lastLogDate = scene.executionLogs[0] ? new Date(scene.executionLogs[0].logDate) : null;
+        const lastUpdateDate = lastLogDate && lastLogDate > lastProgressDate ? lastLogDate : lastProgressDate;
         const daysWithoutProgress = Math.floor((new Date() - lastUpdateDate) / (1000 * 60 * 60 * 24));
 
         if (daysWithoutProgress >= 14) {
