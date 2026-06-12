@@ -132,7 +132,7 @@
           </el-card>
         </div>
 
-        <!-- 平均進度 -->
+        <!-- 平均進度卡片（暫時隱藏，移除註解可恢復）
         <div class="kpi-col">
           <el-card class="kpi-card blue">
             <div class="kpi-label">平均進度</div>
@@ -141,6 +141,7 @@
             <el-progress :percentage="data.kpis?.avgProgress || 0" :stroke-width="6" :color="(data.kpis?.avgProgress||0) >= 100 ? '#67c23a' : ''" :show-text="(data.kpis?.avgProgress||0) < 100" class="kpi-progress" />
           </el-card>
         </div>
+        -->
 
         <!-- 人力釋放率 -->
         <div class="kpi-col">

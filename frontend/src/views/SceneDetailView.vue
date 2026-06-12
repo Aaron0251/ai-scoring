@@ -706,6 +706,14 @@ function ensureYearRow(year) {
 }
 
 watch(visibleYears, (years) => { years.forEach(ensureYearRow) }, { immediate: true })
+
+// 進度連動狀態（暫停、已完成不自動改）
+watch(() => form.progress, (val) => {
+  if (!editing.value) return
+  if (form.status === '已完成' || form.status === '暫停') return
+  if (val <= 30) form.status = '規劃中'
+  else if (val <= 99) form.status = '進行中'
+})
 const allDepartments = ref([])
 const filteredDepts = computed(() =>
   form.divisionId ? allDepartments.value.filter(d => d.divisionId === form.divisionId) : []
@@ -892,6 +900,14 @@ function cancelEdit() {
 async function handleSave() {
   if (!form.sceneName?.trim()) {
     ElMessage.warning('場景名稱為必填')
+    return
+  }
+  if (form.status === '已完成' && (form.progress ?? 0) < 100) {
+    ElMessage.warning('進度需達 100% 才能將狀態設為「已完成」')
+    return
+  }
+  if (form.status === '已完成' && !form.goLiveDate) {
+    ElMessage.warning('請先填寫「上線日期」，才能將狀態設為「已完成」')
     return
   }
   saving.value = true

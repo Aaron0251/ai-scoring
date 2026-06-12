@@ -36,48 +36,50 @@
           </el-select>
         </div>
       </div>
-      <el-row :gutter="12" class="kpi-row">
-        <el-col :xs="24" :sm="4">
+      <div class="kpi-cards-grid">
+        <div class="kpi-col">
           <el-card class="kpi-card">
             <div class="kpi-label">專案總數</div>
             <div class="kpi-value">{{ kpi.totalScenes ?? '-' }}</div>
             <div class="kpi-sub">上線 {{ kpi.effectiveCount }} / 目標 {{ kpi.targetScenes }}</div>
             <el-progress :percentage="pctScenes" :stroke-width="6" :color="pctScenes >= 100 ? '#67c23a' : ''" :show-text="pctScenes < 100" class="kpi-progress" />
           </el-card>
-        </el-col>
-        <el-col :xs="24" :sm="5">
+        </div>
+        <div class="kpi-col">
           <el-card class="kpi-card orange">
             <div class="kpi-label">115年預估節省時數</div>
             <div class="kpi-value">{{ Math.round(kpi.annualizedSaved115||0).toLocaleString() }} <small>h</small></div>
             <div class="kpi-sub">預估月均 {{ (kpi.estimatedTimeSaved||0).toFixed(0) }} h</div>
             <el-progress :percentage="100" :stroke-width="6" color="#67c23a" :show-text="false" class="kpi-progress" />
           </el-card>
-        </el-col>
-        <el-col :xs="24" :sm="5">
+        </div>
+        <div class="kpi-col">
           <el-card class="kpi-card yellow">
             <div class="kpi-label">115年實際節省時數</div>
             <div class="kpi-value">{{ Math.round(kpi.actualSaved115||0).toLocaleString() }} <small>h</small></div>
             <div class="kpi-sub">實際月均 {{ (kpi.actualMonthlyAvg||0).toFixed(0) }} h</div>
             <el-progress :percentage="pctActual" :stroke-width="6" :color="pctActual >= 100 ? '#67c23a' : ''" :show-text="pctActual < 100" class="kpi-progress" />
           </el-card>
-        </el-col>
-        <el-col :xs="24" :sm="5">
+        </div>
+        <!-- 平均進度卡片（暫時隱藏，移除此行可恢復：v-if="false"）
+        <div class="kpi-col">
           <el-card class="kpi-card blue">
             <div class="kpi-label">平均進度</div>
             <div class="kpi-value">{{ avgProgress }} <small>%</small></div>
             <div class="kpi-sub">進行中 {{ kpi.inProgressScenes }}　規劃中 {{ kpi.plannedScenes }}</div>
             <el-progress :percentage="avgProgress" :stroke-width="6" :color="avgProgress >= 100 ? '#67c23a' : ''" :show-text="avgProgress < 100" class="kpi-progress" />
           </el-card>
-        </el-col>
-        <el-col :xs="24" :sm="5">
+        </div>
+        -->
+        <div class="kpi-col">
           <el-card class="kpi-card green">
             <div class="kpi-label">人力釋放率</div>
             <div class="kpi-value">{{ headcountReleaseRate }} <small>%</small></div>
             <div class="kpi-sub">節省人數 {{ Number(kpi.headcountSaved||0).toFixed(1) }} 人</div>
             <el-progress :percentage="headcountReleaseRate" :stroke-width="6" :color="headcountReleaseRate >= 100 ? '#67c23a' : ''" :show-text="headcountReleaseRate < 100" class="kpi-progress" />
           </el-card>
-        </el-col>
-      </el-row>
+        </div>
+      </div>
 
       <!-- ② 成效分析 -->
       <div class="section-title">成效分析：省時與效率</div>
@@ -430,7 +432,27 @@ onMounted(async () => {
 .page-title { margin: 0; font-size: 22px; font-weight: 700; }
 .section-title-row { display: flex; align-items: center; justify-content: space-between; margin: 24px 0 12px; flex-wrap: wrap; gap: 8px; }
 .section-title { font-size: 16px; font-weight: 600; color: #303133; padding-left: 10px; border-left: 4px solid #409eff; margin: 0; }
-.kpi-row { margin-bottom: 16px; }
+.kpi-cards-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: stretch;
+  margin-bottom: 16px;
+}
+.kpi-col {
+  flex: 1 1 160px;
+  min-width: 160px;
+  display: flex;
+  flex-direction: column;
+}
+.kpi-col > .el-card { flex: 1; }
+.kpi-card :deep(.el-card__body) {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  box-sizing: border-box;
+}
+.kpi-progress { margin-top: auto; padding-top: 8px; }
 .kpi-card { text-align: center; }
 .kpi-card.green :deep(.el-card__body) { background: #f0f9eb; }
 .kpi-card.blue :deep(.el-card__body) { background: #ecf5ff; }

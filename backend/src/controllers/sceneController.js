@@ -154,6 +154,19 @@ exports.update = async (req, res) => {
   const oldScene = await prisma.scene.findUnique({ where: { id } });
 
   const body = req.body;
+
+  // ── 狀態改為「已完成」的前置檢核 ──────────────────────────
+  if (body.status === '已完成' && oldScene.status !== '已完成') {
+    const newProgress = body.progress !== undefined ? parseInt(body.progress) : oldScene.progress;
+    if (newProgress < 100) {
+      return res.status(400).json({ error: '進度需達 100% 才能將狀態設為「已完成」' });
+    }
+    const newGoLiveDate = body.goLiveDate !== undefined ? body.goLiveDate : oldScene.goLiveDate;
+    if (!newGoLiveDate) {
+      return res.status(400).json({ error: '請先填寫「上線日期」，才能將狀態設為「已完成」' });
+    }
+  }
+
   const data = {};
 
   const stringFields = ['sceneName', 'maintainOrDevelop', 'developMethod', 'developToolDesc', 'agentCategory', 'inputDesc', 'outputDesc', 'taskSteps', 'rawDataExample', 'finalDataExample', 'taskOwners', 'seedOwners', 'priority', 'status', 'resultText', 'actualResultText', 'otherMetrics', 'note'];
@@ -185,15 +198,10 @@ exports.update = async (req, res) => {
     data.itAssisted = body.itAssisted !== null ? Boolean(body.itAssisted) : null;
   }
 
-  // ── 狀態首次變為「已完成」時，自動記錄 completedAt / baselineSavingHours / goLiveDate ──
+  // ── 狀態首次變為「已完成」時，自動記錄 completedAt / baselineSavingHours ──
   if (body.status === '已完成' && !oldScene.completedAt) {
-    const now = new Date();
-    data.completedAt = now;
+    data.completedAt = new Date();
     data.baselineSavingHours = oldScene.savingHoursMonthly ?? null;
-    // goLiveDate 若尚未填入，預帶今天
-    if (!oldScene.goLiveDate && !data.goLiveDate) {
-      data.goLiveDate = now;
-    }
   }
 
   const scene = await prisma.scene.update({

@@ -94,7 +94,7 @@ function calculateSceneKPIs(scenes) {
     : 0;
 
   // 狀態計數
-  const completedCount  = scenes.filter(s => s.status === '已完成').length;
+  const completedCount  = scenes.filter(s => s.status === '已完成' && s.goLiveDate != null).length;
   const inProgressCount = scenes.filter(s => s.status === '進行中').length;
 
   // 115年實際節省時數（已完成場景，依上線日推算到年底）
@@ -377,19 +377,27 @@ exports.batchUpdateProgress = async (req, res) => {
     }
 
     const results = [];
+    const VALID_STATUSES = ['規劃中', '進行中', '暫停'];
     for (const item of updates) {
-      const { sceneId, progress, remarks } = item;
+      const { sceneId, progress, status, remarks } = item;
       if (!sceneId || progress === undefined) continue;
       if (progress < 0 || progress > 100) continue;
 
       const scene = await prisma.scene.findUnique({ where: { id: sceneId }, select: { progress: true, status: true } });
       if (!scene || (scene.status === '已完成' && !req.user.roles.includes('admin'))) continue;
 
+      const data = {};
       if (scene.progress !== progress) {
         await prisma.sceneProgressHistory.create({
           data: { sceneId, progressValue: progress, changedAt: new Date(), changedBy: req.user.username, remarks: remarks || null },
         });
-        await prisma.scene.update({ where: { id: sceneId }, data: { progress } });
+        data.progress = progress;
+      }
+      if (status && VALID_STATUSES.includes(status) && scene.status !== '已完成') {
+        data.status = status;
+      }
+      if (Object.keys(data).length > 0) {
+        await prisma.scene.update({ where: { id: sceneId }, data });
       }
       results.push({ sceneId, progress });
     }

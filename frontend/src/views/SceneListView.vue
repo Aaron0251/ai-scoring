@@ -127,7 +127,7 @@
           <el-table-column prop="sceneName" label="場景名稱" min-width="200" show-overflow-tooltip />
           <el-table-column label="狀態" width="85" align="center">
             <template #default="{ row }">
-              <el-tag :type="statusType(row.status)" size="small">{{ row.status }}</el-tag>
+              <el-tag :type="statusType(batchMode && batchStatusMap[row.id] ? batchStatusMap[row.id] : row.status)" size="small">{{ batchMode && batchStatusMap[row.id] ? batchStatusMap[row.id] : row.status }}</el-tag>
             </template>
           </el-table-column>
           <el-table-column v-if="!batchMode" label="預估節省時數" width="115" align="right">
@@ -299,6 +299,7 @@ const viewMode = ref('table')  // 'table' | 'kanban'
 const batchMode = ref(false)
 const batchSaving = ref(false)
 const batchProgressMap = reactive({})  // sceneId -> progress
+const batchStatusMap  = reactive({})   // sceneId -> auto-synced status
 const batchRemarksMap = reactive({})   // sceneId -> remarks
 const batchChanges = computed(() =>
   scenes.value.filter(s =>
@@ -313,17 +314,24 @@ function toggleBatchMode() {
     batchMode.value = false
     return
   }
-  // 初始化填報 map 為目前進度
   scenes.value.forEach(s => {
     batchProgressMap[s.id] = s.progress
-    batchRemarksMap[s.id] = ''
+    batchStatusMap[s.id]   = s.status
+    batchRemarksMap[s.id]  = ''
   })
   batchMode.value = true
 }
 
 function onBatchProgressChange(row) {
-  // 強制 Vue 追蹤變更
-  batchProgressMap[row.id] = batchProgressMap[row.id]
+  const val = batchProgressMap[row.id]
+  const cur = batchStatusMap[row.id] || row.status
+  if (cur !== '已完成' && cur !== '暫停') {
+    if (val <= 30)      batchStatusMap[row.id] = '規劃中'
+    else if (val <= 99) batchStatusMap[row.id] = '進行中'
+    else if (val === 100) {
+      ElMessage.info(`「${row.sceneName}」進度已達 100%，請至場景詳情填寫上線日期後再標記為「已完成」`)
+    }
+  }
 }
 
 async function saveBatchProgress() {
@@ -331,12 +339,24 @@ async function saveBatchProgress() {
     ElMessage.info('沒有任何進度變更')
     return
   }
+  // 檢核：有場景進度填到 100% 但尚未有上線日期
+  const blocked = batchChanges.value.filter(s => batchProgressMap[s.id] === 100 && !s.goLiveDate)
+  if (blocked.length > 0) {
+    const names = blocked.map(s => `・${s.sceneName}`).join('\n')
+    ElMessageBox.alert(
+      `以下場景進度為 100%，但尚未填寫「上線日期」，無法儲存：\n\n${names}\n\n請先至場景詳情填寫上線日期。`,
+      '無法儲存',
+      { confirmButtonText: '確定', type: 'warning', customStyle: { whiteSpace: 'pre-wrap' } }
+    )
+    return
+  }
   batchSaving.value = true
   try {
     const updates = batchChanges.value.map(s => ({
-      sceneId: s.id,
+      sceneId:  s.id,
       progress: batchProgressMap[s.id],
-      remarks: batchRemarksMap[s.id] || null,
+      status:   batchStatusMap[s.id] || null,
+      remarks:  batchRemarksMap[s.id] || null,
     }))
     await api.post('/weekly-tracking/batch-update', { updates })
     ElMessage.success(`已更新 ${updates.length} 個場景的進度`)
