@@ -215,7 +215,7 @@ exports.importExcel = async (req, res) => {
     const [allDepts, allSections, existingScenes] = await Promise.all([
       prisma.department.findMany({ select: { id: true, name: true, divisionId: true } }),
       prisma.section.findMany({ select: { id: true, name: true, departmentId: true } }),
-      prisma.scene.findMany({ select: { id: true, itemNo: true, sceneName: true } }),
+      prisma.scene.findMany({ select: { id: true, itemNo: true, sceneName: true, progress: true } }),
     ]);
     const deptByName     = new Map(allDepts.map(d => [d.name, d]));
     const sectionByKey   = new Map(allSections.map(s => [`${s.name}|${s.departmentId}`, s]));
