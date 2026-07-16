@@ -1,7 +1,7 @@
 FROM node:22-slim
 
-# Prisma 需要 openssl
-RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
+# Prisma 需要 openssl；同時套用最新安全更新
+RUN apt-get update -y && apt-get upgrade -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
