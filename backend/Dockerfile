@@ -7,7 +7,10 @@ WORKDIR /app
 
 COPY package*.json ./
 COPY prisma ./prisma/
-RUN npm ci --omit=dev
+RUN npm ci --omit=dev \
+  # 移除 npm CLI 本身（其內建的 tar/sigstore/ip-address/picomatch 等套件常帶有 CVE，
+  # 執行期只需要 node 執行 start.sh，不需要 npm/npx，移除可消除這些誤報漏洞來源）
+  && rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack
 
 COPY . .
 
