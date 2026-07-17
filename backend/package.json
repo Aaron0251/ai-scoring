@@ -28,5 +28,8 @@
   },
   "devDependencies": {
     "prisma": "^7.6.0"
+  },
+  "overrides": {
+    "@hono/node-server": "1.19.13"
   }
 }
