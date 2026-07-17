@@ -31,7 +31,8 @@ jobs:
       - name: Run npm audit
         working-directory: frontend
         # --audit-level=high 表示發現 high 或 critical 等級漏洞時才讓 CI 失敗
-        run: npm audit --audit-level=high
+        # --omit=dev 排除僅建置期使用的 devDependencies（如 vite），因其不會被打包進正式容器（僅 dist/ 靜態檔案會被複製進 nginx 映像）
+        run: npm audit --omit=dev --audit-level=high
 
   audit-backend:
     name: Backend npm audit
@@ -53,4 +54,5 @@ jobs:
 
       - name: Run npm audit
         working-directory: backend
-        run: npm audit --audit-level=high
+        # --omit=dev 排除僅開發期使用的 devDependencies（如 prisma CLI），因 Dockerfile 以 npm ci --omit=dev 建置正式映像
+        run: npm audit --omit=dev --audit-level=high
