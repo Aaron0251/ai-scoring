@@ -1,7 +1,9 @@
-FROM node:22-slim
+FROM node:22-alpine
 
-# Prisma 需要 openssl；同時套用最新安全更新
-RUN apt-get update -y && apt-get upgrade -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
+# Prisma 查詢引擎需要 openssl；同時套用最新安全更新
+# （改用 Alpine 基底：Debian slim 有大量廠商標記 won't-fix 的 OS 層級 CVE，
+#   Alpine 套件面積小且修補快，可通過 GCP 容器弱點掃描關卡）
+RUN apk update && apk upgrade --no-cache && apk add --no-cache openssl
 
 WORKDIR /app
 
