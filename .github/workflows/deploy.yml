@@ -67,7 +67,13 @@ jobs:
           project_id: ${{ env.PROJECT_ID }}
           source: ./backend
           no_traffic: true
-          flags: --no-invoker-iam-check
+          flags: --no-invoker-iam-check --add-cloudsql-instances=h000-500602:asia-east1:pg-instance
+          env_vars: |-
+            NODE_ENV=production
+            DATABASE_URL=${{ secrets.DATABASE_URL }}
+            DIRECT_URL=${{ secrets.DIRECT_URL }}
+            JWT_SECRET=${{ secrets.JWT_SECRET }}
+            FRONTEND_URL=${{ secrets.FRONTEND_URL }}
 
       - name: Deploy new service
         id: deploy_new
@@ -78,7 +84,13 @@ jobs:
           region: ${{ env.REGION }}
           project_id: ${{ env.PROJECT_ID }}
           source: ./backend
-          flags: --no-invoker-iam-check
+          flags: --no-invoker-iam-check --add-cloudsql-instances=h000-500602:asia-east1:pg-instance
+          env_vars: |-
+            NODE_ENV=production
+            DATABASE_URL=${{ secrets.DATABASE_URL }}
+            DIRECT_URL=${{ secrets.DIRECT_URL }}
+            JWT_SECRET=${{ secrets.JWT_SECRET }}
+            FRONTEND_URL=${{ secrets.FRONTEND_URL }}
 
       - name: Get deployed image digest
         id: image
