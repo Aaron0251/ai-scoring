@@ -82,7 +82,7 @@ jobs:
           project_id: ${{ env.PROJECT_ID }}
           source: ./frontend
           no_traffic: true
-          flags: --no-invoker-iam-check
+          flags: --no-invoker-iam-check --ingress=all
 
       - name: Deploy new service
         if: steps.check.outputs.exists == 'false'
@@ -92,7 +92,7 @@ jobs:
           region: ${{ env.REGION }}
           project_id: ${{ env.PROJECT_ID }}
           source: ./frontend
-          flags: --no-invoker-iam-check
+          flags: --no-invoker-iam-check --ingress=all
 
       - name: Get deployed image digest
         id: image
