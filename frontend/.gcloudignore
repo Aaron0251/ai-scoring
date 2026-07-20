@@ -1,0 +1,9 @@
+# gcloud source deploy 上傳排除清單
+# 注意：dist/ 必須上傳（CI 先建置好，Dockerfile 直接 COPY dist）
+node_modules/
+.env
+.env.*
+.git
+.gitignore
+*.log
+mockup_dev_filter.html
