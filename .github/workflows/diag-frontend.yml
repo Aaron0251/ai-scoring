@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  diag:
+  fix:
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -16,15 +16,13 @@ jobs:
           workload_identity_provider: "projects/93282270217/locations/global/workloadIdentityPools/github-pool/providers/github-provider"
           service_account: "github-actions-sa@h000-500602.iam.gserviceaccount.com"
 
-      - name: Describe frontend service
+      - name: Re-enable default URL on frontend service
         run: |
-          echo "===== status.url ====="
-          gcloud run services describe ai-scoring-frontend --region=asia-east1 --project=h000-500602 --format="value(status.url)" || true
-          echo "===== status.urls (all) ====="
-          gcloud run services describe ai-scoring-frontend --region=asia-east1 --project=h000-500602 --format="value(status.urls)" || true
-          echo "===== ingress annotation ====="
-          gcloud run services describe ai-scoring-frontend --region=asia-east1 --project=h000-500602 --format="value(metadata.annotations['run.googleapis.com/ingress'])" || true
-          echo "===== default-url / urlDisabled related ====="
-          gcloud run services describe ai-scoring-frontend --region=asia-east1 --project=h000-500602 --format="yaml(metadata.annotations, spec.template.metadata.annotations, status.conditions, status.url, status.address)" || true
-          echo "===== IAM policy (invoker) ====="
-          gcloud run services get-iam-policy ai-scoring-frontend --region=asia-east1 --project=h000-500602 --format=yaml || true
+          echo "===== 啟用 default URL ====="
+          gcloud run services update ai-scoring-frontend \
+            --region=asia-east1 --project=h000-500602 \
+            --default-url
+          echo "===== 修復後 status.url ====="
+          gcloud run services describe ai-scoring-frontend \
+            --region=asia-east1 --project=h000-500602 \
+            --format="value(status.url)"
