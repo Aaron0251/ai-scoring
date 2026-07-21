@@ -350,7 +350,8 @@ model ResourceItem {
   name        String       // 項目名稱，如：操作說明書、官方網站
   itemType    String       // url | pdf | excel | video | image | text
   url         String?      // 網址連結（itemType = url 時使用）
-  filePath    String?      // 上傳檔案路徑（itemType = pdf/excel/video/image 時使用）
+  filePath    String?      // 上傳檔案原始檔名（含副檔名，供下載命名；實際內容存於 fileData）
+  fileData    Bytes?       // 上傳檔案內容（存資料庫，避免 Cloud Run 暫時磁碟重啟後遺失）
   fileSize    Int?         // 檔案大小（bytes）
   mimeType    String?
   description String?
