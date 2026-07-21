@@ -11,20 +11,13 @@ function safeError(res, err, status = 500) {
   res.status(status).json({ error: isProd ? '伺服器發生錯誤，請稍後再試' : err.message });
 }
 
+// 舊資料相容用：early 版本檔案曾存於此磁碟目錄（Cloud Run 暫時磁碟，重啟即失）
 const UPLOAD_DIR = path.resolve(__dirname, '../../uploads/resources');
-if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
-// Multer 設定（資源檔案，最大 20MB）
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, UPLOAD_DIR),
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    const base = path.basename(file.originalname, ext).replace(/[^a-zA-Z0-9一-鿿_-]/g, '_');
-    cb(null, `${Date.now()}_${base}${ext}`);
-  },
-});
+// Multer 設定（資源檔案，最大 20MB）——改用記憶體儲存，檔案內容寫入資料庫，
+// 不再落地暫時磁碟，避免容器重啟後檔案遺失。
 const upload = multer({
-  storage,
+  storage: multer.memoryStorage(),
   limits: { fileSize: 20 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     const allowed = [
@@ -354,15 +347,18 @@ exports.createItem = async (req, res) => {
     if (!name) return res.status(400).json({ error: '請填寫項目名稱' });
     if (!itemType) return res.status(400).json({ error: '請選擇項目類型' });
 
-    let filePath = null, fileSize = null, mimeType = null;
+    let filePath = null, fileData = null, fileSize = null, mimeType = null;
 
     const isUrlType = itemType === 'url' || itemType === 'video_url';
     if (isUrlType) {
       if (!url) return res.status(400).json({ error: '請填寫連結網址' });
     } else {
-      // 檔案上傳
+      // 檔案上傳（記憶體 buffer → 存入資料庫）
       if (req.file) {
-        filePath = req.file.filename;
+        const ext  = path.extname(req.file.originalname);
+        const base = path.basename(req.file.originalname, ext).replace(/[^a-zA-Z0-9一-鿿_-]/g, '_');
+        filePath = `${Date.now()}_${base}${ext}`;  // 檔名（含副檔名），供下載命名
+        fileData = req.file.buffer;                 // 檔案內容存資料庫
         fileSize = req.file.size;
         mimeType = req.file.mimetype;
       }
@@ -375,6 +371,7 @@ exports.createItem = async (req, res) => {
         itemType,
         url: isUrlType ? url : null,
         filePath,
+        fileData,
         fileSize,
         mimeType,
         description,
@@ -431,11 +428,9 @@ exports.serveFile = async (req, res) => {
     try { jwt.verify(token, JWT_SECRET); } catch { return res.status(401).json({ error: 'Token 無效' }); }
 
     const id = parseInt(req.params.itemId);
-    const item = await prisma.resourceItem.findUnique({ where: { id } });
+    // 明確 omit:false 取回 fileData（全域預設不撈）
+    const item = await prisma.resourceItem.findUnique({ where: { id }, omit: { fileData: false } });
     if (!item || !item.filePath) return res.status(404).json({ error: '找不到檔案' });
-
-    const filePath = path.join(UPLOAD_DIR, item.filePath);
-    if (!fs.existsSync(filePath)) return res.status(404).json({ error: '檔案不存在' });
 
     // 從儲存的檔名取出副檔名，附加到下載檔名
     const ext = path.extname(item.filePath);  // e.g. ".xlsx"
@@ -445,7 +440,17 @@ exports.serveFile = async (req, res) => {
     const disposition = item.mimeType === 'application/pdf' ? 'inline' : 'attachment';
     res.setHeader('Content-Disposition', `${disposition}; filename*=UTF-8''${encodeURIComponent(downloadName)}`);
     if (item.mimeType) res.setHeader('Content-Type', item.mimeType);
-    res.sendFile(filePath);
+
+    // 主要：從資料庫讀取檔案內容
+    if (item.fileData) {
+      return res.send(Buffer.from(item.fileData));
+    }
+
+    // 相容：舊資料若仍有實體磁碟檔則回退（正式環境暫時磁碟通常已清空）
+    const diskPath = path.join(UPLOAD_DIR, item.filePath);
+    if (fs.existsSync(diskPath)) return res.sendFile(diskPath);
+
+    return res.status(404).json({ error: '檔案不存在' });
   } catch (err) {
     safeError(res, err);
   }

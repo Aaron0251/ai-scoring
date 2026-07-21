@@ -28,6 +28,23 @@ function createPool(connectionString) {
 
 const pool    = createPool(process.env.DATABASE_URL || '');
 const adapter = new PrismaPg(pool);
-const prisma  = new PrismaClient({ adapter });
+// 全域 omit：ResourceItem.fileData（檔案內容）預設不撈，
+// 避免列表查詢把所有檔案 bytes 一起載入。僅下載端點會明確 omit:false 取回。
+const prisma  = new PrismaClient({
+  adapter,
+  omit: { resourceItem: { fileData: true } },
+});
+
+/**
+ * 啟動時確保 ResourceItem 具備 fileData 欄位。
+ * 上傳檔案改存資料庫（原本存 Cloud Run 暫時磁碟，容器重啟即遺失）。
+ * 正式映像不含 prisma CLI，故以冪等 DDL 於啟動時自我套用，
+ * 不需外部 migration 步驟、不需額外 GCP 權限（沿用現有資料庫連線）。
+ */
+prisma.ensureSchema = async function ensureSchema() {
+  await prisma.$executeRawUnsafe(
+    'ALTER TABLE ai_scoring."ResourceItem" ADD COLUMN IF NOT EXISTS "fileData" BYTEA'
+  );
+};
 
 module.exports = prisma;
