@@ -6,6 +6,11 @@ on:
   push:
     branches:
       - master
+      - main
+    paths:
+      - 'backend/**'
+      - '.github/workflows/deploy-vertex.yml'
+  workflow_dispatch:
 
 env:
   REGION: asia-east1
@@ -46,15 +51,14 @@ jobs:
 
       - name: Build cloudrun-env.yaml
         env:
-          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
         run: |
-          DB_PASS_ENCODED=$(python3 -c "import urllib.parse, os; print(urllib.parse.quote(os.environ['DB_PASSWORD'], safe=''))")
           cat > backend/cloudrun-env.yaml << ENVEOF
           NODE_ENV: "production"
           JWT_SECRET: "${JWT_SECRET}"
-          DATABASE_URL: "postgresql://postgres:${DB_PASS_ENCODED}@localhost/postgres?host=/cloudsql/vertex-ai-491502:asia-east1:pg-instance"
-          DIRECT_URL: "postgresql://postgres:${DB_PASS_ENCODED}@localhost/postgres?host=/cloudsql/vertex-ai-491502:asia-east1:pg-instance"
+          DATABASE_URL: "${DATABASE_URL}"
+          DIRECT_URL: "${DATABASE_URL}"
           FRONTEND_URL: "https://ai-scoring-frontend-306010027590.asia-east1.run.app,https://ai-scoring-frontend-v3ddct6yyq-de.a.run.app"
           ENVEOF
           echo "cloudrun-env.yaml 建立完成"
