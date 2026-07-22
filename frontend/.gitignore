@@ -1,2 +1,12 @@
 .vercel
 .env*.local
+node_modules/
+.env
+.env.local
+.DS_Store
+__pycache__/
+*.pyc
+dist/
+build/
+.venv/
+*.log

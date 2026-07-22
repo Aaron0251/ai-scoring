@@ -13,9 +13,9 @@ on:
 
 env:
   REGION: asia-east1
-  PROJECT_ID: h000-500602
+  PROJECT_ID: vertex-ai-491502
   SERVICE_NAME: ai-scoring-frontend
-  API_BASE_URL: https://fme-ai-scoring-zkc6hnkahq-de.a.run.app
+  API_BASE_URL: https://ai-scoring-backend-v3ddct6yyq-de.a.run.app
 
 jobs:
   deploy:
@@ -57,8 +57,8 @@ jobs:
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v3
         with:
-          workload_identity_provider: "projects/93282270217/locations/global/workloadIdentityPools/github-pool/providers/github-provider"
-          service_account: "github-actions-sa@h000-500602.iam.gserviceaccount.com"
+          workload_identity_provider: "projects/306010027590/locations/global/workloadIdentityPools/github-pool/providers/github-provider"
+          service_account: "github-actions-sa@vertex-ai-491502.iam.gserviceaccount.com"
 
       - name: Check if service exists
         id: check
@@ -74,6 +74,7 @@ jobs:
           fi
 
       - name: Deploy existing service (no_traffic)
+        id: deploy
         if: steps.check.outputs.exists == 'true'
         uses: google-github-actions/deploy-cloudrun@v3
         with:
@@ -85,6 +86,7 @@ jobs:
           flags: --no-invoker-iam-check --ingress=all --default-url
 
       - name: Deploy new service
+        id: deploy_new
         if: steps.check.outputs.exists == 'false'
         uses: google-github-actions/deploy-cloudrun@v3
         with:
@@ -151,35 +153,45 @@ jobs:
               HIGH=$(echo "$VULN" | python3 -c "import sys,json;d=json.load(sys.stdin);print(sum(1 for o in d.get('occurrences',[]) if o.get('vulnerability',{}).get('severity','') in ['CRITICAL','HIGH','MEDIUM'] or (o.get('vulnerability',{}).get('severity','') in ['LOW','MINIMAL','','SEVERITY_UNSPECIFIED'] and any(p.get('fixedVersion',{}).get('name','') not in ['','none'] for p in o.get('vulnerability',{}).get('packageIssue',[])))))" 2>/dev/null || echo "0")
               WARN=$(echo "$VULN" | python3 -c "import sys,json;d=json.load(sys.stdin);print(sum(1 for o in d.get('occurrences',[]) if o.get('vulnerability',{}).get('severity','') in ['LOW','MINIMAL','','SEVERITY_UNSPECIFIED'] and not any(p.get('fixedVersion',{}).get('name','') not in ['','none'] for p in o.get('vulnerability',{}).get('packageIssue',[]))))" 2>/dev/null || echo "0")
               echo "Found $COUNT vulnerabilities: $HIGH blocking, $WARN warning-only."
-              echo "$VULN" | python3 -c "import sys,json;d=json.load(sys.stdin);[print(f'  [{o.get(\"vulnerability\",{}).get(\"severity\",\"\")}] {o.get(\"vulnerability\",{}).get(\"shortDescription\",\"\")} {p.get(\"affectedPackage\",\"\")} {p.get(\"affectedVersion\",{}).get(\"name\",\"\")} -> fix: {p.get(\"fixedVersion\",{}).get(\"name\",\"none\")}') for o in d.get('occurrences',[]) for p in o.get('vulnerability',{}).get('packageIssue',[])]" 2>/dev/null || echo "  (unable to list individual vulnerabilities)"
+              echo "$VULN" | python3 -c "import sys,json;d=json.load(sys.stdin);[print(f'  [{o.get(\"vulnerability\",{}).get(\"severity\",\"\")}] {o.get(\"vulnerability\",{}).get(\"shortDescription\",\"\")} {p.get(\"affectedPackage\",\"\")} {p.get(\"affectedVersion\",{}).get(\"name\",\"\")} -> fix: {p.get(\"fixedVersion\",{}).get(\"name\",\"none\")}') for o in d.get('occurrences',[]) for p in o.get('vulnerability',{}).get('packageIssue',[])]" 2>/dev/null || true
               echo "high=$HIGH" >> $GITHUB_OUTPUT
               echo "warn=$WARN" >> $GITHUB_OUTPUT
               break
             fi
           done
           if [ $ELAPSED -ge $MAX_WAIT ]; then
-            echo "Scan timed out after ${MAX_WAIT}s. Proceeding with caution."
-            echo "high=0" >> $GITHUB_OUTPUT
-            echo "warn=0" >> $GITHUB_OUTPUT
+            echo "SCAN_TIMEOUT=true" >> $GITHUB_ENV
+            echo "high=1" >> $GITHUB_OUTPUT
+            echo "Scan timeout after 900s. Traffic will remain at 0%."
           fi
 
-      - name: Block on high severity vulnerabilities
-        if: steps.scan.outputs.high != '0'
-        run: |
-          echo "Deployment blocked: ${{ steps.scan.outputs.high }} blocking vulnerabilities found."
-          exit 1
-
-      - name: Shift traffic to new revision
+      - name: Open traffic if scan passed
+        if: steps.scan.outputs.high == '0'
         run: |
           gcloud run services update-traffic ${{ env.SERVICE_NAME }} \
             --region=${{ env.REGION }} \
             --project=${{ env.PROJECT_ID }} \
             --to-latest
-
-      - name: Get service URL
-        run: |
+          echo "========================================="
+          echo "Deployed! Service: ${{ env.SERVICE_NAME }}"
           URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
             --region=${{ env.REGION }} \
             --project=${{ env.PROJECT_ID }} \
             --format="value(status.url)")
-          echo "Service URL: $URL"
+          echo "URL: $URL"
+          echo "========================================="
+
+      - name: Warn for unfixable low severity
+        if: steps.scan.outputs.high == '0' && steps.scan.outputs.warn != '0'
+        run: |
+          echo "⚠️ 注意：發現 ${{ steps.scan.outputs.warn }} 個低風險漏洞（無可用修復版本），不影響部署，建議持續追蹤。"
+
+      - name: Keep traffic at 0 if scan failed
+        if: steps.scan.outputs.high != '0'
+        run: |
+          if [ "${{ env.SCAN_TIMEOUT }}" = "true" ]; then
+            echo "掃描逾時（15分鐘），掃描異常失敗，請AI協助確認問題。Traffic remains at 0%."
+          else
+            echo "Blocking vulnerabilities found. Traffic remains at 0%."
+          fi
+          exit 1

@@ -9,8 +9,10 @@ __pycache__/
 *.pyc
 *.log
 npm-debug.log*
+dist/
 build/
 .venv/
+*.txt
 openspec/
 *.docx
 *.md
