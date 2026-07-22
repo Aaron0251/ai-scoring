@@ -54,13 +54,14 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
         run: |
-          cat > backend/cloudrun-env.yaml << ENVEOF
-          NODE_ENV: "production"
-          JWT_SECRET: "${JWT_SECRET}"
-          DATABASE_URL: "${DATABASE_URL}"
-          DIRECT_URL: "${DATABASE_URL}"
-          FRONTEND_URL: "https://ai-scoring-frontend-306010027590.asia-east1.run.app,https://ai-scoring-frontend-v3ddct6yyq-de.a.run.app"
-          ENVEOF
+          FIXED_DB_URL="${DATABASE_URL//h000-500602/vertex-ai-491502}"
+          {
+            echo "NODE_ENV: \"production\""
+            echo "JWT_SECRET: \"${JWT_SECRET}\""
+            echo "DATABASE_URL: \"${FIXED_DB_URL}\""
+            echo "DIRECT_URL: \"${FIXED_DB_URL}\""
+            echo "FRONTEND_URL: \"https://ai-scoring-frontend-306010027590.asia-east1.run.app,https://ai-scoring-frontend-v3ddct6yyq-de.a.run.app\""
+          } > backend/cloudrun-env.yaml
           echo "cloudrun-env.yaml 建立完成"
 
       - name: Check if service exists
